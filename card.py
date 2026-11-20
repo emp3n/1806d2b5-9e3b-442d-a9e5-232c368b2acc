@@ -222,7 +222,7 @@ def render(
                 "values": state["cpu_series"],
                 "levels": state["cpu_levels"],
                 "budget": state["cpu_budget"],
-                "cores": int(state.get("host", {}).get("cores") or 1),
+                "cores": float(state.get("host", {}).get("cores") or 1),
                 "scale": 100,
                 "bands": [25.0, 50.0, 80.0],
                 "base": state["cpu"],
@@ -749,7 +749,13 @@ def render(
       sparks.forEach(function (spark) {{
         var valueNode = document.querySelector('[data-value="' + spark.key + '"]');
         var shareNode = document.querySelector('[data-share="' + spark.key + '"]');
-        if (valueNode && data[spark.key + '_text']) valueNode.textContent = data[spark.key + '_text'];
+        /* The server's text is always MB. Writing it here every second used
+           to undo a GB selection while the toggle still said GB. The chosen
+           unit formats the live number instead; GPU/CPU text is unchanged. */
+        if (valueNode && data[spark.key + '_text']) {{
+          valueNode.textContent = spark.key === 'mem'
+            ? fmtMem(data.mem) : data[spark.key + '_text'];
+        }}
         if (shareNode && data[spark.key + '_share']) shareNode.textContent = data[spark.key + '_share'];
         if (spark.key === 'cpu' && typeof data.cpu === 'number') spark.pending = data.cpu;
         if (spark.key === 'mem' && typeof data.mem === 'number') {{
@@ -831,7 +837,10 @@ def render(
         Array.prototype.forEach.call(document.querySelectorAll('[data-unit]'), function (other) {{
           other.setAttribute('aria-pressed', String(other === button));
         }});
-
+        /* repaint the RAM value now, not on the next animation tick */
+        sparks.forEach(function (spark) {{
+          if (spark.key === 'mem') show(spark, spark.shown);
+        }});
       }});
     }});
 

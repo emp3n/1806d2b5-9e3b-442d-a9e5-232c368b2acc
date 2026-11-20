@@ -226,7 +226,10 @@ last = st.session_state.get("last_action")
 # card is a srcdoc iframe and the browser resolves it against the app document.
 # On a plain host that is "/" and on Community Cloud it is "/~/+/", so one
 # string covers both; a leading slash skipped /~/+/ and served the HTML shell.
-state_url = bootstrap.CARD_STATE_PATH
+# In sample mode there is no sampler writing state.json, so polling it would
+# overwrite the demo numbers with a stale "no process" payload from a previous
+# live run. No feed => the card keeps the server-rendered sample series.
+state_url = bootstrap.CARD_STATE_PATH if use_live else None
 
 page = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'

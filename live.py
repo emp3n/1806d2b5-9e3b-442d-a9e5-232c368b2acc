@@ -802,7 +802,11 @@ class Collector:
                 _VERSION_CACHE[exe] = cached
             version = cached
         mem_limit = proc_memory_limit(self.pid)
-        mem_budget = f"{mem_limit:.0f} MB" if mem_limit else f"{DEMO_MEM:.0f} MB"
+        # A 3072 MB cgroup is 3.0 GB to a person; printing "3072 MB" reads
+        # like a bug next to the card's other GB figures.
+        mem_budget = (f"{mem_limit / 1024:.1f} GB" if mem_limit and mem_limit >= 1024
+                      else f"{mem_limit:.0f} MB" if mem_limit
+                      else f"{DEMO_MEM:.0f} MB")
         live = int(self._ready.get("ready", 0))
         # the edges come from the connector's own log: a registered connection
         # names its colo and address; a failing one at least names the address

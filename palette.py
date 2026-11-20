@@ -503,10 +503,12 @@ def semantic_tokens(name: str, mode: str) -> dict[str, str]:
         "--acc-tint": a(2),
         "--ok": sem("ok", text_step),
         "--ok-solid": sem("ok", 9),
-        "--ok-tint": sem("ok", 2),
-        # the CPU tile's own alias: keeping it separate from --ok-tint means a
-        # future "accent tint" change cannot quietly repaint the status chips.
-        "--cpu-tint": sem("ok", 2),
+        # Data surfaces are NEUTRAL. The old green CPU / purple RAM tiles and
+        # green Origin/Edges chips fought the pale monochrome theme: hue is
+        # reserved for state (ok/warn/hot/crit), not for ordinary data groups.
+        "--chip-tint": n(3),
+        "--ok-tint": n(3),          # legacy alias, same neutral surface
+        "--cpu-tint": n(3),
         "--warn": sem("warn", text_step),
         "--warn-solid": sem("warn", 9),
         "--warn-tint": sem("warn", 2),
@@ -518,7 +520,7 @@ def semantic_tokens(name: str, mode: str) -> dict[str, str]:
         "--crit-tint": sem("crit", 2),
         "--on-crit": on_crit,
         "--mem": step(p["mem"], text_step, mode),
-        "--mem-tint": step(p["mem"], 2, mode),
+        "--mem-tint": n(4),         # one step deeper, still neutral
     }
 
 

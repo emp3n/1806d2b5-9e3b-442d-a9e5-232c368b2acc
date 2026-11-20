@@ -179,7 +179,7 @@ def test_a_sub_percent_reading_reaches_the_card(fake_proc, monkeypatch):
     cores = live.available_cores()
     assert state["cpu_share"] == f"{0.30 / cores:.2f}% of {cores} cores"
     page = card.render(state, theme="dark")
-    assert "0.30%" in page and re.search(r"of \d+ cores", page)
+    assert "0.30%" in page and re.search(r"of [\d.]+ cores", page)
 
 
 # --------------------------------------------------------------- process find
@@ -483,7 +483,7 @@ def test_four_ready_edges_render_as_a_healthy_card(fake_proc, monkeypatch):
     assert "4 of 4 connections live" in page
     assert 'data-status="up"' in page
     assert "data-note hidden" in page
-    assert re.search(r"of \d+ cores", page) and "MB" in page
+    assert re.search(r"of [\d.]+ cores", page) and "MB" in page
 
 
 def test_a_zombie_reads_as_gone_not_as_a_running_connector(fake_proc, monkeypatch):

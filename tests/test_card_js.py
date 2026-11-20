@@ -185,6 +185,19 @@ def test_the_native_verb_buttons_are_present_but_invisible():
     assert "left: -9999px" in shell
 
 
+def test_sample_mode_does_not_poll_a_stale_live_file():
+    shell = (CARD.parent / "app.py").read_text()
+    assert "state_url = bootstrap.CARD_STATE_PATH if use_live else None" in shell
+
+
+def test_the_chosen_memory_unit_survives_every_poll():
+    """The server text is always MB. Writing it on each poll used to flip the
+    display back to MB while the GB toggle stayed pressed."""
+    assert "spark.key === 'mem'" in SCRIPT
+    assert "? fmtMem(data.mem)" in SCRIPT
+    assert "if (spark.key === 'mem') show(spark, spark.shown)" in SCRIPT
+
+
 def test_the_card_polls_a_relative_path():
     """The srcdoc frame resolves it against the app document: "/" on a plain
     host, "/~/+/" on Cloud. A leading slash lost the viewer prefix."""

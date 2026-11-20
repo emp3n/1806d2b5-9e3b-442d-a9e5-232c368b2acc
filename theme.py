@@ -197,16 +197,16 @@ __TOKEN_BLOCKS__
 .rd-facts { display: flex; flex-wrap: wrap; gap: 6px; }
 .rd-fact {
   padding: 4px 10px; border-radius: 8px; font-size: 13px;
-  background: var(--ok-tint); color: var(--text);
+  background: var(--chip-tint); color: var(--text);
 }
 .rd-fact em { font-style: normal; margin-right: 6px; color: var(--muted); }
-.rd-fact[data-tone="mem"] { background: var(--mem-tint); }
+.rd-fact[data-tone="mem"] { background: var(--chip-tint); }
 
 /* ---------- measures ---------- */
 .rd-measures { display: grid; grid-template-columns: minmax(0, 1fr) 124px; gap: 8px; }
 .rd-tile { position: relative; border-radius: 14px; padding: 10px 12px; background: var(--cpu-tint); }
 .rd-tile[data-tone="mem"] { background: var(--mem-tint); }
-.rd-tile[data-level="ok"] { --lv: var(--ok); }
+.rd-tile[data-level="ok"] { --lv: var(--text); }
 .rd-tile[data-level="warm"] { --lv: var(--warn); }
 .rd-tile[data-level="hot"] { --lv: var(--hot); }
 .rd-tile[data-level="crit"] { --lv: var(--crit); }
@@ -225,7 +225,7 @@ __TOKEN_BLOCKS__
 .rd-spark { position: relative; margin-top: 6px; padding-bottom: 2px; touch-action: pan-y; }
 .rd-spark svg { width: 100%; height: 24px; }
 .rd-seg { stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.lv-ok { stroke: var(--ok); }
+.lv-ok { stroke: var(--text); }
 .lv-warm { stroke: var(--warn); }
 .lv-hot { stroke: var(--hot); }
 .lv-crit { stroke: var(--crit); }

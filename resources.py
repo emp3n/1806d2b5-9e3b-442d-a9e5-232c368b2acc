@@ -7,8 +7,12 @@ therefore print the host's numbers on a card that describes a container.
 
 Order of truth:
   1. cgroup v2 ``cpu.max`` (quota / period) and ``cpu.cpuset``/affinity;
-  2. cgroup v1 quota files, if the host still uses them;
-  3. ``sched_getaffinity`` / ``os.cpu_count`` as the last fallback.
+  2. when the quota is ``max`` (Streamlit Cloud's case), cgroup v2
+     ``cpu.weight`` is the only signal of a shared allocation: weight 14
+     against the kernel default 100 means a 0.14 share of every visible CPU,
+     so 16 visible CPUs are really about 2.2 cores;
+  3. cgroup v1 quota files, if the host still uses them;
+  4. ``sched_getaffinity`` / ``os.cpu_count`` as the last fallback.
 """
 from __future__ import annotations
 
@@ -18,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 CPU_MAX = Path("/sys/fs/cgroup/cpu.max")
+CPU_WEIGHT = Path("/sys/fs/cgroup/cpu.weight")
 CPUSET_V2 = Path("/sys/fs/cgroup/cpuset.cpus.effective")
 CPU_QUOTA_V1 = Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
 CPU_PERIOD_V1 = Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
@@ -61,8 +66,14 @@ def _affinity() -> int:
         return os.cpu_count() or 1
 
 
-def available_cores() -> int:
-    """How many CPUs this process may actually use, from cgroups if present."""
+def available_cores() -> float:
+    """The CPU allowance this process can really count on, not the host's.
+
+    ``cpu.max = max`` does NOT mean the platform gives you all 16 visible CPUs:
+    Streamlit Cloud's cgroup sets ``cpu.weight = 14`` (kernel default 100),
+    which is a 14 % share of each one. The card used to print 16 cores and
+    divide the connector's CPU by 16, making a busy core look like 0.3 % load.
+    """
     text = _read(CPU_MAX)
     if text:
         parts = text.split()
@@ -70,22 +81,35 @@ def available_cores() -> int:
             try:
                 quota, period = int(parts[0]), int(parts[1])
                 if quota > 0 and period > 0:
-                    return max(1, math.ceil(quota / period))
+                    return max(0.01, quota / period)
             except ValueError:
                 pass
-        # An unlimited quota still has to respect the cpuset and the affinity.
-        cpuset = _count_cpu_list(_read(CPUSET_V2))
-        if cpuset:
-            return min(cpuset, _affinity())
+        cpuset = _count_cpu_list(_read(CPUSET_V2)) or _affinity()
+        # No hard quota: cpu.weight is the only honest allocation signal.
+        weight_text = _read(CPU_WEIGHT)
+        if weight_text:
+            try:
+                weight = int(weight_text)
+                if 0 < weight < 100:
+                    return round(max(0.01, cpuset * weight / 100), 2)
+            except ValueError:
+                pass
+        return float(max(1, cpuset))
     quota_text, period_text = _read(CPU_QUOTA_V1), _read(CPU_PERIOD_V1)
     if quota_text and period_text:
         try:
             quota, period = int(quota_text), int(period_text)
-            if 0 < quota < period * 1024 and period > 0:
-                return max(1, math.ceil(quota / period))
+            if 0 < quota and period > 0:
+                return max(0.01, quota / period)
         except ValueError:
             pass
-    return max(1, _affinity())
+    return float(max(1, _affinity()))
+
+
+def cores_text(cores: float | None = None) -> str:
+    """Human-readable allowance: 2.2 cores, not 2.244396 cores."""
+    value = available_cores() if cores is None else cores
+    return f"{value:.1f}".rstrip("0").rstrip(".")
 
 
 def memory_limit_bytes() -> int:
@@ -120,9 +144,10 @@ def host_info() -> dict[str, Any]:
     cores = available_cores()
     total = memory_limit_bytes()
     gb = total / 1024**3 if total else 0.0
+    shown = cores_text(cores)
     return {
         "cores": cores,
         "ram_gb": gb,
         "ram_text": f"{gb:.1f} GB" if gb else "unknown",
-        "text": f"{cores} cores · {gb:.1f} GB" if gb else f"{cores} cores",
+        "text": f"{shown} cores · {gb:.1f} GB" if gb else f"{shown} cores",
     }

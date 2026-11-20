@@ -6,10 +6,26 @@ import resources
 
 def test_cgroup_v2_quota_is_converted_to_cores(tmp_path, monkeypatch):
     cpu = tmp_path / "cpu.max"
-    cpu.write_text("250000 100000")  # 2.5 cores -> ceil to 3
+    cpu.write_text("250000 100000")  # 2.5 cores, fractional is honest
     monkeypatch.setattr(resources, "CPU_MAX", cpu)
     monkeypatch.setattr(resources, "CPUSET_V2", tmp_path / "missing")
-    assert resources.available_cores() == 3
+    assert resources.available_cores() == 2.5
+
+
+def test_cpu_weight_resolves_the_shared_streamlit_allocation(tmp_path, monkeypatch):
+    """cpu.max=max with 16 visible CPUs and weight 14 is ~2.2 cores, not 16."""
+    cpu = tmp_path / "cpu.max"
+    cpu.write_text("max 100000")
+    cpus = tmp_path / "cpuset"
+    cpus.write_text("0-15")
+    weight = tmp_path / "weight"
+    weight.write_text("14")
+    monkeypatch.setattr(resources, "CPU_MAX", cpu)
+    monkeypatch.setattr(resources, "CPUSET_V2", cpus)
+    monkeypatch.setattr(resources, "CPU_WEIGHT", weight)
+    monkeypatch.setattr(resources, "_affinity", lambda: 16)
+    assert resources.available_cores() == 2.24
+    assert resources.cores_text() == "2.2"
 
 
 def test_cpuset_limits_an_unlimited_quota(tmp_path, monkeypatch):
