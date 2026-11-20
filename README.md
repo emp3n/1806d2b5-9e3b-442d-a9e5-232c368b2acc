@@ -84,6 +84,20 @@ Streamlit secrets → та же переменная в окружении → `
 `/app/static/state.json` на любом хосте — на `localhost`, на
 `*.streamlit.app` и на имени туннеля. Ни прокси, ни второго порта.
 
+### Что в Streamlit можно, а что нельзя (и через что прокидывать)
+
+Здесь собраны именно те факты, которых не хватало, пока разбирались с
+«нереагирующими» кнопками и ошибками в логах. Все проверены на 1.64.0.
+
+| Хочу | Как | Почему не иначе |
+|---|---|---|
+| Отдать данные браузеру без второго сервера | `server.enableStaticServing = true`, файл в `static/`, путь `/app/static/<file>` | Другого origin нет: страница и числа приходят с одного хоста, CORS и отдельный порт не нужны |
+| Перезаписывать такой файл раз в секунду | `write_state()` дописывает пробелы до **16384 байт**, потом `os.replace` | Starlette'овский `stream_file()` берёт `Content-Length` из `stat()` **до** чтения; файл меняющейся длины даёт `Response content shorter/longer than Content-Length` (было 176 сбоев на 1200 GET). `json.loads` пробелы игнорирует |
+| Нажимать кнопку внутри iframe и менять состояние процесса | Кнопка уходит на `?rd=stop\|start\|restart`; `app.py` читает параметр **до** отрисовки, выполняет действие, чистит параметр | `st.iframe` ставит sandbox без `allow-top-navigation`, поэтому `window.top.location` из него недоступен; app пишет свой `<iframe>` с этим разрешением |
+| Передать действие в приложение | Один канал `?rd=`, единственный владелец глагола — `statefeed.Sampler.act()` | Второй HTTP-эндпоинт создаёт второго владельца коннектора; раньше именно так кнопки и пропали с карточки |
+| Заставить rerun после смены URL | Полная навигация (`location.replace`) | `st.query_params` меняет URL через `history.pushState`, но **сам не вызывает rerun** |
+| Выполнить код внутри контейнера | `mcp_exec.py` + `CARD_EXEC_TOKEN`, `?exec=` | HTTP-роуты Streamlit read-only; `st.html` исполняет JS только в браузере, до Python он не добирается |
+
 `?source=sample` работает вообще без сети и без бинарника — запасной режим для
 первого запуска.
 
@@ -400,7 +414,7 @@ pidfile → `/proc` → `/ready`: чужой `cloudflared`, systemd или ко�
 ## Тесты
 
 ```sh
-python3 -m pytest tests -q                            # 146: юниты
+python3 -m pytest tests -q                            # 151: юниты
 CARD_INTEGRATION=1 python3 -m pytest tests -q         # + настоящий cloudflared
 ```
 
