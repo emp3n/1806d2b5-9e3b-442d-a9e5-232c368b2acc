@@ -23,6 +23,7 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -34,6 +35,12 @@ VERSION = "2026.11.1"
 BASE = "https://github.com/cloudflare/cloudflared/releases/download"
 
 TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+
+# The metrics listener the sampler reads (and that a second instance collides
+# with). It is a *preference*, not a constraint: a survivor from the previous
+# Streamlit process can still hold it, so a fresh connector asks for a free
+# port instead of dying with "bind: address already in use".
+METRICS_PORT = 20241
 
 
 def in_cloud_runtime() -> bool:
@@ -158,21 +165,144 @@ def _log_tail(path: Path, count: int = 25) -> str:
     return "\n".join(lines[-count:])
 
 
+def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    """Can something bind ``port`` right now? Used before handing it to
+    cloudflared, whose failure mode is an immediate exit with code 255."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def pick_metrics_port(preferred: int = METRICS_PORT) -> int:
+    """The preferred port, or any free one when a previous connector holds it.
+
+    Streamlit Cloud reboots the script process without killing the connector it
+    started, so 20241 is routinely still bound; starting a second cloudflared
+    on it exits with `listen tcp 127.0.0.1:20241: bind: address already in use`
+    and the card reports a dead tunnel while a working one is right there.
+    """
+    if port_is_free(preferred):
+        return preferred
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+def _proc_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if Path("/proc").is_dir():
+        return Path(f"/proc/{pid}").exists()
+    try:  # pragma: no cover - non-POSIX fallback
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _cmdline(pid: int) -> list[str]:
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return []
+    return [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+
+
+def _flag_value(args: list[str], flag: str) -> str | None:
+    for i, arg in enumerate(args):
+        if arg == flag and i + 1 < len(args):
+            return args[i + 1]
+        if arg.startswith(flag + "="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+def metrics_answers(port: int, timeout: float = 1.5) -> bool:
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics",
+                                    timeout=timeout) as reply:
+            return reply.status == 200
+    except Exception:  # noqa: BLE001 - any failure means "not ours to reuse"
+        return False
+
+
+def feed_answers(url: str, timeout: float = 4.0) -> bool:
+    """Does the public tunnel really serve the feed right now?"""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/api/state",
+                                    timeout=timeout) as reply:
+            return reply.status == 200 and b"{" in reply.read(256)
+    except Exception:  # noqa: BLE001 - a dead tunnel is a normal answer here
+        return False
+
+
+def adopt_running_tunnel(feed_port: int, directory: Path | None = None,
+                         verified: bool = True) -> Tunnel | None:
+    """Reuse the connector a previous Streamlit process already started.
+
+    A reboot of the script (or a redeploy) leaves the child cloudflared alive
+    and still tunnelling to ``127.0.0.1:<feed_port>`` inside the same container:
+    the pidfile, the log and the metrics listener all survive. Starting a
+    second connector is both unnecessary and the exact thing that fails, so the
+    new process reads the old one instead — same pid, same public URL.
+    """
+    directory = directory or runtime_dir()
+    pidfile = directory / "cf.pid"
+    try:
+        pid = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        return None
+    if not _proc_alive(pid):
+        return None
+    args = _cmdline(pid)
+    if not args or "cloudflared" not in os.path.basename(args[0]):
+        return None
+    if "tunnel" not in args:
+        return None
+    target = _flag_value(args, "--url") or ""
+    if f":{feed_port}" not in target:
+        return None
+    metrics = _flag_value(args, "--metrics") or ""
+    port = metrics.rsplit(":", 1)[-1]
+    if not port.isdigit() or not metrics_answers(int(port)):
+        return None
+    log = Path(_flag_value(args, "--logfile") or (directory / "cf.log"))
+    found = TUNNEL_RE.findall(_log_tail(log, 400))
+    if not found:
+        return None
+    public = found[-1]
+    api_url = f"{public}/api/state"
+    if verified and not feed_answers(api_url):
+        return None
+    return Tunnel(True, api_url=api_url, public_url=public, binary=args[0],
+                  pid=pid, detail=f"reused running tunnel {public} (pid {pid})")
+
+
 def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = None,
-                       wait_s: float = 20.0, runner=None) -> Tunnel:
+                       wait_s: float = 20.0, runner=None,
+                       metrics_port: int | None = None) -> Tunnel:
     """Run ``cloudflared tunnel --url http://127.0.0.1:<feed_port>``.
 
     A quick tunnel needs no token, so a fresh Streamlit Cloud deployment works
     without any secret. The public URL is printed in the log; that is what the
     card polls. A process that exits early is reported with its exit code.
+
+    The metrics listener takes the preferred port only while it is free: a
+    connector left over from the previous script process still owns 20241, and
+    binding it twice is what made the "second" tunnel die instantly.
     """
     directory = directory or runtime_dir()
     log = directory / "cf.log"
     pidfile = directory / "cf.pid"
+    metrics = metrics_port or pick_metrics_port()
     command = [
         str(binary), "tunnel",
         "--url", f"http://127.0.0.1:{feed_port}",
-        "--metrics", "127.0.0.1:20241",
+        "--metrics", f"127.0.0.1:{metrics}",
         "--logfile", str(log),
         "--pidfile", str(pidfile),
         "--loglevel", "info",
@@ -215,13 +345,51 @@ _lock = threading.Lock()
 _cached: Tunnel | None = None
 
 
+def retire_stale_tunnel(directory: Path | None = None) -> str:
+    """Stop a pidfile connector that could not be adopted.
+
+    It is ours (its path is the runtime binary), it is alive, and it is not
+    serving the feed — so it only holds a metrics port and a dead public name.
+    """
+    pidfile = (directory or runtime_dir()) / "cf.pid"
+    try:
+        pid = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        return ""
+    if not _proc_alive(pid):
+        return ""
+    args = _cmdline(pid)
+    if not args or "cloudflared" not in os.path.basename(args[0]) or "tunnel" not in args:
+        return ""
+    try:
+        os.kill(pid, 15)  # SIGTERM
+    except OSError:
+        return ""
+    return f"retired stale tunnel pid {pid}"
+
+
 def ensure_tunnel(feed_port: int, *, force: bool = False,
-                  wait_s: float = 20.0) -> Tunnel:
-    """One tunnel per Streamlit process, shared across script reruns."""
+                  wait_s: float = 20.0, verified: bool = True) -> Tunnel:
+    """One tunnel per Streamlit process, shared across script reruns.
+
+    Order matters: reuse a connector that is already tunnelling to this feed,
+    and only start a new one when nothing adoptable is left. On Community Cloud
+    the script process is rebooted far more often than the container, so the
+    reuse path is the common one — and the only one that does not collide on the
+    metrics port.
+    """
     global _cached
     with _lock:
         if _cached is not None and not force and _cached.ok:
             return _cached
+        adopted = adopt_running_tunnel(feed_port, verified=verified) if not force else None
+        if adopted is not None:
+            print(f"cloudflared: {adopted.message}", flush=True)
+            _cached = adopted
+            return adopted
+        retired = retire_stale_tunnel()
+        if retired:
+            print(f"cloudflared: {retired}", flush=True)
         try:
             binary = download()
             tunnel = start_quick_tunnel(binary, feed_port, wait_s=wait_s)
