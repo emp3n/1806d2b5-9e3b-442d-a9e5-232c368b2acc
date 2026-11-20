@@ -346,6 +346,29 @@ def is_tunnel_run(args: Iterable[str]) -> bool:
     return re.search(r"(^|\s)run(\s|$)", joined) is not None or "--url" in args
 
 
+def metrics_url_for(args: list[str]) -> str | None:
+    """The /metrics address this connector actually listens on.
+
+    bootstrap.py takes the preferred port only while it is free (a connector
+    from the previous script process may still own 20241), so a connector can
+    be listening on an ephemeral port. Reading the hard-coded default then made
+    a live tunnel look like "0 of 4 connections live" with every gauge at zero.
+    """
+    value = None
+    for i, arg in enumerate(args):
+        if arg == "--metrics" and i + 1 < len(args):
+            value = args[i + 1]
+            break
+        if arg.startswith("--metrics="):
+            value = arg.split("=", 1)[1]
+            break
+    if not value:
+        return None
+    if value.startswith(("http://", "https://")):
+        return value.rstrip("/")
+    return f"http://{value}"
+
+
 def scan_pids() -> list[tuple[int, float]]:
     """Every running connector, newest first, as (pid, start seconds)."""
     found: list[tuple[int, float]] = []
@@ -717,6 +740,9 @@ class Collector:
         if mem_mb is not None:
             self.mem.append(round(mem_mb, 2))
 
+        # follow the connector's own listener unless the operator pinned one
+        if not os.environ.get("CLOUDFLARED_METRICS"):
+            self.metrics_url = (metrics_url_for(argv) or self.metrics_url).rstrip("/")
         self._metrics = parse_metrics(_http(f"{self.metrics_url}/metrics") or "") if self.metrics_url else {}
         self._ready = parse_ready(_http(f"{self.metrics_url}/ready") or "") if self.metrics_url else {}
         if now - self._trace_at > TRACE_EVERY:

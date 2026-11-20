@@ -75,6 +75,8 @@ class Tunnel:
     binary: str | None = None
     pid: int | None = None
     detail: str = ""
+    # when the public URL last answered; the cache re-probes at most this often
+    checked_at: float = 0.0
 
     @property
     def message(self) -> str:
@@ -344,6 +346,30 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
 _lock = threading.Lock()
 _cached: Tunnel | None = None
 
+# A cached tunnel is re-probed at most this often: a rerun must not pay an
+# HTTPS round trip, but a page must not keep polling a tunnel that died either.
+CHECK_EVERY = 15.0
+
+
+def reusable(tunnel: Tunnel) -> bool:
+    """Is this tunnel still worth handing to the card?
+
+    The pid must be alive (a rebooted container forgets /proc; a rebooted script
+    process does not), and the public URL must still answer — a quick tunnel's
+    DNS name dies with its connection, so a stale name is the difference between
+    a live card and "feed unreachable".
+    """
+    if not tunnel.ok or not tunnel.pid or not _proc_alive(tunnel.pid):
+        return False
+    args = _cmdline(tunnel.pid)
+    if not args or "cloudflared" not in os.path.basename(args[0]):
+        return False
+    if tunnel.api_url and time.monotonic() - tunnel.checked_at > CHECK_EVERY:
+        if not feed_answers(tunnel.api_url):
+            return False
+        tunnel.checked_at = time.monotonic()
+    return True
+
 
 def retire_stale_tunnel(directory: Path | None = None) -> str:
     """Stop a pidfile connector that could not be adopted.
@@ -380,8 +406,9 @@ def ensure_tunnel(feed_port: int, *, force: bool = False,
     """
     global _cached
     with _lock:
-        if _cached is not None and not force and _cached.ok:
+        if _cached is not None and not force and reusable(_cached):
             return _cached
+        _cached = None
         adopted = adopt_running_tunnel(feed_port, verified=verified) if not force else None
         if adopted is not None:
             print(f"cloudflared: {adopted.message}", flush=True)
