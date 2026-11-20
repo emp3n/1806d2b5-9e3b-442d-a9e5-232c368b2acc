@@ -35,6 +35,13 @@ from live import Collector
 INTERVAL = 1.0
 FILENAME = "state.json"
 
+# Starlette's stream_file() takes Content-Length from stat() and only then reads
+# the bytes. A file whose length changes between those two moments answers with
+# "Response content shorter/longer than Content-Length" (176 times in 1200 GETs
+# in a local repro with a 1-second rewrite). Padding every payload to a fixed
+# byte count keeps the length constant even when an os.replace lands mid-read.
+STATE_SIZE = 16384
+
 
 def static_dir(directory: Path | None = None) -> Path:
     """The folder Streamlit publishes; it lives next to the app, in the repo."""
@@ -46,12 +53,21 @@ def state_path(directory: Path | None = None) -> Path:
 
 
 def write_state(payload: dict[str, Any], path: Path | None = None) -> Path:
-    """Replace the state file atomically; a reader gets old or new, never half."""
+    """Replace the state file atomically, at a fixed byte length.
+
+    The reader gets old or new, never half — *and* the length it was told in
+    Content-Length is always the length it actually receives. ``json.loads``
+    ignores the trailing spaces, so the payload is byte-for-byte unchanged for
+    the card; only the frame around it is stable.
+    """
     target = path or state_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".new")
     text = json.dumps(payload, separators=(",", ":"), allow_nan=False)
-    partial.write_text(text, encoding="utf-8")
+    data = text.encode("utf-8")
+    if len(data) > STATE_SIZE:
+        raise ValueError(f"state payload is {len(data)} bytes, limit {STATE_SIZE}")
+    partial.write_bytes(data + b" " * (STATE_SIZE - len(data)))
     os.replace(partial, target)
     return target
 

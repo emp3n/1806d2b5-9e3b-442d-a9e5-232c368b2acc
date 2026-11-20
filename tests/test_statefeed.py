@@ -108,6 +108,25 @@ def test_a_write_is_atomic_and_readable(tmp_path):
     assert [p.name for p in target.parent.iterdir()] == ["state.json"]
 
 
+def test_the_file_length_never_changes_between_replacements(tmp_path):
+    """Starlette takes Content-Length from stat() before it streams the file.
+
+    With a variable-length payload an os.replace landing in between made it
+    answer "Response content shorter/longer than Content-Length" (reproduced:
+    176 failures in 1200 GETs). Every write must be the same byte count, and
+    the trailing padding must stay invisible to json.loads.
+    """
+    target = statefeed.state_path(tmp_path)
+    sizes = set()
+    for n in range(20):
+        payload = {"found": True, "ts": n, "pad": "x" * (n % 37)}
+        statefeed.write_state(payload, target)
+        sizes.add(target.stat().st_size)
+        assert statefeed.read_state(target) == payload
+    assert sizes == {statefeed.STATE_SIZE}
+    assert statefeed.STATE_SIZE < 65536, "a padded 1 Hz file must stay small"
+
+
 def test_a_missing_file_reads_as_empty(tmp_path):
     assert statefeed.read_state(tmp_path / "nope.json") == {}
 
