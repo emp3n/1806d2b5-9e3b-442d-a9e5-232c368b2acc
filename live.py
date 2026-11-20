@@ -329,15 +329,21 @@ def proc_memory_limit(pid: int) -> float | None:
 
 # ------------------------------------------------------------- process finding
 def is_tunnel_run(args: Iterable[str]) -> bool:
-    """True for ``cloudflared tunnel run ...`` and for ``... tunnel --x run``.
+    """True for a connector: ``tunnel ... run`` or a tokenless quick tunnel.
 
     Flags may sit before or after the subcommand (cloudflared takes
     ``tunnel --metrics ... run``), so the test is on words, not positions.
+    A quick tunnel has no ``run`` at all -- it is ``cloudflared tunnel --url
+    http://...`` -- which is exactly what the deployed app starts. Requiring
+    ``run`` made a working connector invisible to the sampler and left the card
+    saying "no cloudflared process" next to live metrics.
     """
     words = [os.path.basename(arg) for arg in args]
     has_binary = any(word == "cloudflared" or word.startswith("cloudflared-") for word in words[:2])
-    joined = " ".join(args)
-    return has_binary and " tunnel " in f" {joined} " and re.search(r"(^|\s)run(\s|$)", joined) is not None
+    joined = f" {' '.join(args)} "
+    if not has_binary or " tunnel " not in joined:
+        return False
+    return re.search(r"(^|\s)run(\s|$)", joined) is not None or "--url" in args
 
 
 def scan_pids() -> list[tuple[int, float]]:
