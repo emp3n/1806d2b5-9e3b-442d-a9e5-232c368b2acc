@@ -74,6 +74,13 @@ STUCK_AFTER = 180.0
 # trip, but the page must not keep polling a tunnel that died either.
 CHECK_EVERY = 15.0
 
+# How many consecutive failed HTTPS probes of the public hostname it takes
+# before a *registered* connector is declared stuck. One is not evidence: the
+# edge can miss a single probe while the connector is perfectly healthy, and
+# killing a registered connector over that is what made the page replace its own
+# tunnel — the operator sees it as "it restarts by itself".
+PUBLIC_STRIKES = 3
+
 # Secrets may arrive as a root-level secret (also injected as an env var) under
 # any of these names; the first hit wins.
 TOKEN_KEYS = ("CLOUDFLARE_TUNNEL_TOKEN", "CARD_TUNNEL_TOKEN")
@@ -748,6 +755,31 @@ def tunnel_status(port: int | None = None,
     return best
 
 
+_public_failures: dict[int, tuple[int, float]] = {}
+
+
+def public_is_stuck(pid: int, hostname: str) -> bool:
+    """Has this connector's public name been failing long enough to mean stuck?
+
+    Only repeated misses count, and only once per CHECK_EVERY seconds, so a
+    flaky probe costs nothing. A connector that answers ``/ready`` is left
+    alone: the hostname is how the *operator* reaches the page, not what makes
+    the connector run.
+    """
+    if not hostname:
+        return False
+    now = time.monotonic()
+    count, last = _public_failures.get(pid, (0, 0.0))
+    if count and now - last < CHECK_EVERY:
+        return count >= PUBLIC_STRIKES
+    if public_answers(hostname):
+        _public_failures[pid] = (0, now)
+        return False
+    count += 1
+    _public_failures[pid] = (count, now)
+    return count >= PUBLIC_STRIKES
+
+
 def adopt_running_tunnel(port: int, directory: Path | None = None,
                          verified: bool = True) -> Tunnel | None:
     """Reuse the connector a previous script process already started.
@@ -764,9 +796,10 @@ def adopt_running_tunnel(port: int, directory: Path | None = None,
         return None
     if not status.get("public"):
         return None
-    # An old connector that never answers the public hostname is stuck and gets
-    # replaced; a young one is allowed to need a few seconds to be routed.
-    if verified and proc_age(pid) > STUCK_AFTER and not public_answers(status["public"]):
+    # An old connector that has *repeatedly* failed to answer the public name is
+    # stuck and gets replaced; a young one is allowed to need a few seconds to be
+    # routed, and a registered one is never replaced over a single missed probe.
+    if verified and proc_age(pid) > STUCK_AFTER and public_is_stuck(pid, status["public"]):
         return None
     return Tunnel(
         True, public_url=status["public"],
@@ -882,10 +915,15 @@ def reusable(tunnel: Tunnel) -> bool:
         return False
     if tunnel.hostname and proc_age(tunnel.pid) > STUCK_AFTER:
         if time.monotonic() - tunnel.checked_at > CHECK_EVERY:
-            if not public_answers(tunnel.hostname):
+            if public_is_stuck(tunnel.pid, tunnel.hostname):
                 return False
             tunnel.checked_at = time.monotonic()
     return True
+
+
+def _forget_strikes(pid: int | None) -> None:
+    if pid:
+        _public_failures.pop(pid, None)
 
 
 def forget_tunnel() -> None:

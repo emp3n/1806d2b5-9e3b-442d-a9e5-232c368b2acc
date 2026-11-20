@@ -326,9 +326,16 @@ def test_a_young_connector_is_adopted_before_the_hostname_answers(tmp_path, monk
     assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None
 
 
-def test_an_old_connector_that_never_answers_is_replaced(tmp_path, monkeypatch):
+def test_an_old_connector_is_replaced_only_after_repeated_misses(tmp_path, monkeypatch):
+    """The old rule was "one failed probe and it is stuck", and that is what made
+    a healthy connector get replaced by a page load. Evidence now takes strikes."""
     args = _fake_runtime(tmp_path)
     _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 10, public=False)
+    monkeypatch.setattr(bootstrap, "_public_failures", {})
+    for _ in range(bootstrap.PUBLIC_STRIKES - 1):
+        assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None
+        count, _last = bootstrap._public_failures[4242]
+        bootstrap._public_failures[4242] = (count, 0.0)   # CHECK_EVERY elapses
     assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is None
 
 
@@ -595,3 +602,54 @@ def test_a_named_connector_is_never_downgraded_to_quick(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
     tunnel = bootstrap.ensure_tunnel(8501)
     assert tunnel is named and tunnel.mode == "named"
+
+
+# --------------------------------------------------------------- one miss is not evidence
+def test_one_missed_probe_does_not_condemn_a_registered_connector(tmp_path, monkeypatch):
+    """The page replaced its own tunnel whenever a single HTTPS probe of the
+    public name failed from inside the container — the operator sees that as
+    "it restarts by itself"."""
+    args = _fake_runtime(tmp_path)
+    _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 60, public=False)
+    monkeypatch.setattr(bootstrap, "_public_failures", {})
+    tunnel = bootstrap.adopt_running_tunnel(8501, directory=tmp_path)
+    assert tunnel is not None and tunnel.ok, "a registered connector must survive one miss"
+
+
+def test_repeated_misses_do_condemn_it(tmp_path, monkeypatch):
+    """A hostname that has failed PUBLIC_STRIKES times in a row is real evidence."""
+    args = _fake_runtime(tmp_path)
+    _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 60, public=False)
+    monkeypatch.setattr(bootstrap, "_public_failures", {})
+    verdicts = []
+    for _ in range(bootstrap.PUBLIC_STRIKES):
+        verdicts.append(bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None)
+        count, _last = bootstrap._public_failures[4242]
+        bootstrap._public_failures[4242] = (count, 0.0)   # CHECK_EVERY elapses
+    assert verdicts[:-1] == [True] * (bootstrap.PUBLIC_STRIKES - 1), verdicts
+    assert verdicts[-1] is False, verdicts
+
+
+def test_a_recovered_probe_clears_the_strikes(tmp_path, monkeypatch):
+    args = _fake_runtime(tmp_path)
+    _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 60, public=False)
+    monkeypatch.setattr(bootstrap, "_public_failures", {})
+    rediscover = []
+    original = bootstrap.public_answers
+
+    bootstrap.adopt_running_tunnel(8501, directory=tmp_path)
+    bootstrap._public_failures[4242] = (2, 0.0)      # two misses, then a good answer
+    monkeypatch.setattr(bootstrap, "public_answers", lambda host, timeout=5.0: True)
+    assert bootstrap.public_is_stuck(4242, "streamlit.idealis.cc") is False
+    assert bootstrap._public_failures[4242][0] == 0
+    monkeypatch.setattr(bootstrap, "public_answers", original)
+
+
+def test_reuse_also_survives_a_single_miss(tmp_path, monkeypatch):
+    args = _fake_runtime(tmp_path)
+    _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 60, public=False)
+    monkeypatch.setattr(bootstrap, "_public_failures", {})
+    tunnel = bootstrap.adopt_running_tunnel(8501, directory=tmp_path)
+    assert tunnel is not None
+    tunnel.checked_at = 0.0            # force the periodic check to run again
+    assert bootstrap.reusable(tunnel) is True
