@@ -386,6 +386,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
   background: var(--text); color: var(--card); box-shadow: var(--shadow-tip);
   opacity: 0; pointer-events: none;
 }
+.rd-toast[data-tone="crit"] { background: var(--crit); color: var(--card); }
 .rd-toast.on { animation: rd-toast 2400ms ease-out forwards; }
 
 @keyframes rd-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }

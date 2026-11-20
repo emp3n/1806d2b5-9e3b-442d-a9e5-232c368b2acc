@@ -18,6 +18,8 @@ import os
 import random
 from typing import Any
 
+from resources import host_info
+
 BASE_CPU_PCT = 17.6
 BASE_MEM_MB = 69.4
 SAMPLES = 48
@@ -50,24 +52,13 @@ def level(value: float, metric: str) -> str:
 
 
 def host() -> dict[str, Any]:
-    """The machine the panel is actually on. Read once, never invented."""
-    cores = os.cpu_count() or 1
-    total = 0
-    try:
-        with open("/proc/meminfo", encoding="ascii") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    total = int(line.split()[1]) * 1024
-                    break
-    except (OSError, ValueError):
-        total = 0
-    gb = total / 1024**3
-    return {
-        "cores": cores,
-        "ram_gb": gb,
-        "ram_text": f"{gb:.1f} GB" if gb else "unknown",
-        "text": f"{cores} cores · {gb:.1f} GB" if gb else f"{cores} cores",
-    }
+    """The container the panel actually runs in, read from cgroups.
+
+    os.cpu_count() and /proc/meminfo describe the HOST (16 cores, 125 GB on
+    Streamlit Cloud), not the limits this process is subject to (16 CPUs,
+    3 GiB). resources.host_info() resolves cgroup v2/v1 and affinity.
+    """
+    return host_info()
 
 
 def duration(seconds: float) -> str:

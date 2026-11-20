@@ -81,6 +81,13 @@ st.markdown(
       box-shadow: 0 6px 24px rgba(0, 0, 0, .35); white-space: pre-wrap;
     }
     .rd-alert b { display: block; margin-bottom: 2px; font-weight: 600; }
+    /* the native buttons are only an input channel for the card's postMessage;
+       they must stay in the DOM but never take space or be seen */
+    .st-key-rd_verb_stop, .st-key-rd_verb_start, .st-key-rd_verb_restart {
+      position: absolute !important; left: -9999px !important; top: 0 !important;
+      width: 1px !important; height: 1px !important; overflow: hidden !important;
+      opacity: 0 !important; pointer-events: none !important;
+    }
 
     </style>""",
     unsafe_allow_html=True,
@@ -131,37 +138,44 @@ except Exception:  # noqa: BLE001 - no request context outside a script run
     page_host = ""
 served_through_tunnel = bool(page_host) and bootstrap.public_hostname() in page_host
 
-# The buttons are back on the card, and the card is an iframe: it cannot call
-# into this process. So a click reloads the page with ``?rd=<verb>`` and the verb
-# runs *here*, in the process that owns the connector — after which the card
-# paints whatever is true. The parameter is cleared first, so a reload can never
-# replay an action, and the app is the only thing that ever performs one.
-# ``CARD_TUNNEL=off`` means this process does not manage a connector (a test
-# run, a build). It must also mean it refuses to start one: the buttons ask the
-# app, and an app that has been told not to touch the tunnel answers "no" rather
-# than quietly registering a second connector on the named tunnel.
+# The card's buttons never navigate the page. A click is a postMessage to this
+# document, which programmatically presses one of three invisible native
+# Streamlit buttons. A native button reruns the script over the existing
+# WebSocket — no navigation, no fresh render of the whole page, no 10-second
+# flash — and its callback performs the verb in this process, the one that owns
+# the connector. The result goes into state.json, and the card shows it in its
+# own bottom notification. ``CARD_TUNNEL=off`` means this process does not manage
+# a connector, so a verb is refused rather than starting one quietly.
 tunnel_managed = os.environ.get("CARD_TUNNEL", "on").lower() != "off"
-
 back_in_url = bootstrap.cloud_url()
-pending = (st.query_params.get("rd") or "").strip().lower()
-if pending:
-    st.query_params.clear()
+
+
+def _run_verb(verb: str) -> None:
+    sampler = statefeed.sampler(port)
     if not use_live:
-        outcome = {"ok": False, "action": pending,
+        outcome = {"ok": False, "action": verb,
                    "error": "the live source is off (?source=sample)"}
     elif not tunnel_managed:
-        outcome = {"ok": False, "action": pending,
+        outcome = {"ok": False, "action": verb,
                    "error": "this process does not manage the tunnel (CARD_TUNNEL=off)"}
     else:
-        outcome = statefeed.sampler(port).act(pending)
+        outcome = sampler.act(verb)
+    # The card reads state.json, not session_state: even a refusal must reach
+    # that one channel so the bottom notification can name the reason. ``at``
+    # is the card's "show this once" key (Sampler.act adds it on the live path).
+    outcome.setdefault("at", int(time.time()))
+    sampler.last_action = outcome
+    sampler.refresh()
     st.session_state.last_action = outcome
-    verb_pid = outcome.get("pid") or outcome.get("stopped")
-    if outcome.get("ok"):
-        st.toast(f"{pending} ok · pid {verb_pid}", icon="✅")
-    else:
-        st.toast(f"{pending} failed — "
-                 f"{outcome.get('error') or outcome.get('detail') or 'no detail'}",
-                 icon="⚠️")
+
+
+# One native button per verb. Pressed by the bridge below, never by a person:
+# a native click is a Streamlit rerun over the open socket, so the page does not
+# navigate and only the parts that changed are redrawn.
+for _verb in ("stop", "start", "restart"):
+    with st.container(key=f"rd_verb_{_verb}"):
+        st.button(_verb, key=f"rd_button_{_verb}", on_click=_run_verb,
+                  args=(_verb,))
 
 state: dict = {}
 feed: statefeed.Sampler | None = None
@@ -234,10 +248,10 @@ def _attribute(document: str) -> str:
             .replace("\r", "").replace("\n", "&#10;").replace("\t", "&#9;"))
 
 
-# The Cloud viewer itself is a sandboxed frame, so a descendant cannot navigate
-# its parent no matter what we put in the card's own sandbox. The card therefore
-# sends a tiny postMessage and the app document (which CAN navigate itself)
-# reloads with the verb. One guarded listener per script run.
+# The card is a descendant of a sandboxed viewer frame, so it cannot navigate
+# ANY ancestor. It sends a postMessage; this document presses the matching
+# native Streamlit button, which reruns over the existing socket instead of
+# reloading the page. One guarded listener per script run.
 st.html(
     """<script>
 (function () {
@@ -246,9 +260,8 @@ st.html(
   window.addEventListener('message', function (event) {
     var verb = event.data && event.data.rd;
     if (verb !== 'stop' && verb !== 'start' && verb !== 'restart') return;
-    var url = new URL(window.location.href);
-    url.searchParams.set('rd', verb);
-    window.location.replace(url.toString());
+    var button = document.querySelector('.st-key-rd_verb_' + verb + ' button');
+    if (button) button.click();
   });
 })();
 </script>""",
@@ -270,11 +283,3 @@ if tunnel_problem:
         unsafe_allow_html=True,
     )
 
-if last and not last.get("ok"):
-    st.markdown(
-        '<div class="rd-alert"><b>' + html.escape(str(last.get("action")))
-        + " failed</b>"
-        + html.escape(str(last.get("error") or last.get("detail") or "")[:300])
-        + "</div>",
-        unsafe_allow_html=True,
-    )

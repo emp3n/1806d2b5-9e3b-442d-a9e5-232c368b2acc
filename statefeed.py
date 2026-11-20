@@ -32,6 +32,7 @@ from typing import Any
 
 import bootstrap
 from live import Collector
+from resources import available_cores
 
 INTERVAL = 1.0
 FILENAME = "state.json"
@@ -122,7 +123,14 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "status_text": state_text(state),
         "status_state": "up" if state["connected"] else "down",
         "cpu": round(float(state["cpu"]), 2),
+        "cpu_text": state.get("cpu_text", ""),
+        "cpu_share": state.get("cpu_share", ""),
+        "cpu_budget": state.get("cpu_budget", ""),
         "mem": round(float(state["mem"]), 2),
+        "mem_text": state.get("mem_text", ""),
+        "mem_share": state.get("mem_share", ""),
+        "mem_budget": state.get("mem_budget", ""),
+        "cores": int(state.get("host", {}).get("cores") or available_cores()),
         "mem_scale": float(state.get("mem_scale", 256.0)),
         "uptime": state["uptime"],
         "version": state["version"],

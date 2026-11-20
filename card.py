@@ -109,9 +109,9 @@ def measure(state: dict[str, Any], metric: str) -> str:
         <span class="rd-k">{label}</span>{units}
       </div>
       <div class="rd-value-row">
-        <b class="rd-v"{' data-mem-value' if metric == 'mem' else ''}>{state[f'{key}_text']}</b>
+        <b class="rd-v" data-value="{key}"{' data-mem-value' if metric == 'mem' else ''}>{state[f'{key}_text']}</b>
       </div>
-      <span class="rd-sub">{state[f'{key}_share']}</span>
+      <span class="rd-sub" data-share="{key}">{state[f'{key}_share']}</span>
       <div class="rd-spark" data-spark="{key}" tabindex="0" role="img"
         aria-label="{label} over the last {state['samples']} samples, now {state[f'{key}_text']}.">
         <svg viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">{state[f'{key}_segments']}</svg>
@@ -221,6 +221,7 @@ def render(
                 "values": state["cpu_series"],
                 "levels": state["cpu_levels"],
                 "budget": state["cpu_budget"],
+                "cores": int(state.get("host", {}).get("cores") or 1),
                 "scale": 100,
                 "bands": [25.0, 50.0, 80.0],
                 "base": state["cpu"],
@@ -277,8 +278,10 @@ def render(
     var unit = 'MB';
     var W = 100, H = 24, PAD = 3;
 
-    function say(text) {{
+    function say(text, tone) {{
       toast.textContent = text;
+      if (tone) toast.setAttribute('data-tone', tone);
+      else toast.removeAttribute('data-tone');
       toast.classList.remove('on');
       void toast.offsetWidth;
       toast.classList.add('on');
@@ -468,8 +471,13 @@ def render(
     function show(spark, value) {{
       var text = fmtValue(spark, value);
       if (spark.__text !== text) {{ spark.value.textContent = text; spark.__text = text; }}
-      var share = 100 * value / spark.geo.scale;
-      var sub = (share > 0 && share < 1 ? share.toFixed(2) : Math.round(share)) + '% of ' + spark.geo.budget;
+      /* CPU percent is single-core-equivalent, so a share of all available
+         cores is value/cores (a Go connector uses several). RAM stays a share
+         of its own budget. The core count comes from cgroups, not a constant. */
+      var cores = spark.geo.cores || 1;
+      var share = spark.key === 'cpu' ? value / cores : 100 * value / spark.geo.scale;
+      var budget = spark.key === 'cpu' ? cores + ' cores' : spark.geo.budget;
+      var sub = (share > 0 && share < 1 ? share.toFixed(2) : Math.round(share)) + '% of ' + budget;
       if (spark.__sub !== sub) {{ spark.sub.textContent = sub; spark.__sub = sub; }}
       var level = band(spark, value);
       if (spark.__level !== level) {{ spark.tile.setAttribute('data-level', level); spark.__level = level; }}
@@ -685,6 +693,17 @@ def render(
       /* an answer is an answer: whatever it says about the process, the feed
          itself is back, so the stale look comes off here and nowhere else */
       card.setAttribute('data-feed', 'ok');
+      /* The verb's result travels in the SAME file as the numbers: no page
+         reload, no Streamlit toast in the top corner. Show it once in the
+         card's own bottom notification, in the card's own design. */
+      var act = data.last_action;
+      if (act && act.at && act.at !== lastActionAt) {{
+        lastActionAt = act.at;
+        var what = act.action || 'action';
+        say(act.ok ? what + ' ok · pid ' + (act.pid || act.stopped || '—')
+                   : what + ' failed — ' + (act.error || act.detail || 'no detail'),
+            act.ok ? 'ok' : 'crit');
+      }}
       if (!data || !data.found) {{
         /* a lost process is a state, not a glitch: say it, do not freeze on the
            last flattering number */
@@ -723,7 +742,14 @@ def render(
       retitle(true);
       var copyBtn = document.querySelector('[data-copy]');
       if (copyBtn && data.path) copyBtn.setAttribute('data-copy', data.path);
+      if (data.cores) {{
+        sparks.forEach(function (spark) {{ if (spark.key === 'cpu') spark.geo.cores = data.cores; }});
+      }}
       sparks.forEach(function (spark) {{
+        var valueNode = document.querySelector('[data-value="' + spark.key + '"]');
+        var shareNode = document.querySelector('[data-share="' + spark.key + '"]');
+        if (valueNode && data[spark.key + '_text']) valueNode.textContent = data[spark.key + '_text'];
+        if (shareNode && data[spark.key + '_share']) shareNode.textContent = data[spark.key + '_share'];
         if (spark.key === 'cpu' && typeof data.cpu === 'number') spark.pending = data.cpu;
         if (spark.key === 'mem' && typeof data.mem === 'number') {{
           spark.pending = data.mem;
@@ -739,7 +765,7 @@ def render(
        backs off while the feed is gone, it resumes the moment the page comes
        back, and it names the failure instead of freezing on it. */
     var BEAT = 1000, PATIENCE = 4000, CEILING = 10000;
-    var misses = 0, beatTimer = null;
+    var misses = 0, beatTimer = null, lastActionAt = '';
 
     function lose() {{
       card.setAttribute('data-feed', 'lost');

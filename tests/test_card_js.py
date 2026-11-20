@@ -148,14 +148,41 @@ def test_staleness_is_observed_not_subtracted_from_the_clock():
 
 
 def test_the_app_installs_a_postmessage_bridge():
-    """The Cloud viewer is a sandbox, so the card cannot navigate any ancestor.
-    The parent app document listens for the three fixed verbs and navigates
-    itself; a guard keeps one listener per script run."""
+    """The card cannot navigate an ancestor of the sandboxed Cloud viewer. The
+    bridge presses one of three native Streamlit buttons, so the action is a
+    rerun over the open socket — no page reload, no corner toast."""
     shell = (CARD.parent / "app.py").read_text()
     assert "window.__rdVerbBridge" in shell
     assert "window.addEventListener('message'" in shell
-    assert "url.searchParams.set('rd', verb)" in shell
+    assert "'.st-key-rd_verb_' + verb + ' button'" in shell
+    assert "button.click()" in shell
     assert "unsafe_allow_javascript=True" in shell
+    assert "st.toast(" not in shell
+    assert 'st.query_params.get("rd")' not in shell
+
+
+def test_the_result_is_shown_once_in_the_cards_own_bottom_toast():
+    """No Streamlit toast in the corner and no page reload: the outcome travels
+    in state.json and the card renders it in its own bottom notification."""
+    assert "lastActionAt" in SCRIPT
+    assert "act.at !== lastActionAt" in SCRIPT
+    assert "say(act.ok ?" in SCRIPT
+    assert "act.ok ? 'ok' : 'crit'" in SCRIPT
+    # the notice is installed BEFORE the found/empty split, so a Stop (which
+    # makes found:false) still shows its result
+    assert SCRIPT.index("var act = data.last_action") < SCRIPT.index("if (!data || !data.found)")
+    shell = (CARD.parent / "app.py").read_text()
+    assert "st.toast(" not in shell
+    assert "outcome.setdefault(\"at\", int(time.time()))" in shell
+    assert "sampler.last_action = outcome" in shell
+
+
+def test_the_native_verb_buttons_are_present_but_invisible():
+    shell = (CARD.parent / "app.py").read_text()
+    assert 'with st.container(key=f"rd_verb_{_verb}")' in shell
+    assert "on_click=_run_verb" in shell
+    assert ".st-key-rd_verb_stop" in shell
+    assert "left: -9999px" in shell
 
 
 def test_the_card_polls_a_relative_path():
@@ -227,11 +254,11 @@ def test_a_card_button_asks_the_app_instead_of_acting_itself():
     # no second port, no action route, no key
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
     assert "data-action=" not in CARD.read_text()
-    # the app consumes the request and clears it, so a reload cannot replay it
+    # a native button callback owns the verb; no URL round trip at all
     shell = (CARD.parent / "app.py").read_text()
-    assert 'st.query_params.get("rd")' in shell
-    assert "st.query_params.clear()" in shell
-    assert "statefeed.sampler(port).act(pending)" in shell
+    assert "def _run_verb(verb: str)" in shell
+    assert "sampler.act(verb)" in shell
+    assert "on_click=_run_verb" in shell
 
 
 def test_stopping_from_the_tunnel_page_warns_first_and_names_the_way_back():

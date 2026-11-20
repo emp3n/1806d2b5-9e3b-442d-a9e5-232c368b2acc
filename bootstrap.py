@@ -589,7 +589,7 @@ def _wait_ready(proc, metrics: int, log: Path, wait_s: float) -> tuple[bool, str
             return False, (f"cloudflared exited with code {proc.returncode}"
                            + (f": {hint}" if hint else "")
                            + (f"\n{tail[-900:]}" if tail else ""))
-        time.sleep(0.3)
+        time.sleep(0.05)
     # It is running but not registered: say so, do not pretend it works.
     return False, (f"cloudflared did not register a connection in {wait_s:g}s "
                    f"(pid {proc.pid}, metrics {metrics})\n{_log_tail(log)[-700:]}")
@@ -620,17 +620,22 @@ def start_named_tunnel(binary: Path, port: int, token: str,
         "run", "--token-file", str(token_path),
     ]
     print(f"cloudflared: named tunnel -> {host} (ingress localhost:{port})", flush=True)
+    started = time.monotonic()
     try:
         proc = _spawn(command, runner)
     except OSError as exc:
         return Tunnel(False, mode="named", detail=f"cannot start cloudflared: {exc}",
                       token_source=token_source)
     ok, why = _wait_ready(proc, metrics, log, wait_s)
+    elapsed = time.monotonic() - started
     if not ok:
+        print(f"cloudflared: start failed after {elapsed:.2f}s: {why[:160]}", flush=True)
         return Tunnel(False, hostname=host, binary=str(binary), mode="named",
                       pid=proc.pid, metrics=metrics, detail=why,
                       token_source=token_source)
     ready = ready_connections(metrics)
+    print(f"cloudflared: registered in {elapsed:.2f}s (pid {proc.pid}, {ready} edges)",
+          flush=True)
     detail = f"named tunnel {host} (pid {proc.pid}, {ready} connections)"
     if port != ingress_port():
         detail += (f" — WARNING: the dashboard route points at localhost:"
@@ -846,13 +851,14 @@ def retire_stale_tunnel(keep: int | None = None, directory: Path | None = None) 
 
 
 def stop_tunnel(pids: list[int] | int | None = None,
-                directory: Path | None = None, grace: float = 5.0) -> dict:
+                directory: Path | None = None, grace: float = 1.0) -> dict:
     """SIGTERM, wait, SIGKILL — and report what is *actually* gone.
 
     The pidfile is cleared as well: a stale pid there is what makes a page claim
     a connector that does not exist.
     """
     directory = directory or runtime_dir()
+    started = time.monotonic()
     if pids is None:
         targets = our_tunnels(directory)
     elif isinstance(pids, int):
@@ -870,7 +876,7 @@ def stop_tunnel(pids: list[int] | int | None = None,
             continue
     deadline = time.monotonic() + grace
     while time.monotonic() < deadline and any(_proc_alive(pid) for pid in stopped):
-        time.sleep(0.1)
+        time.sleep(0.02)
     for pid in list(stopped):
         if _proc_alive(pid):
             try:
@@ -879,12 +885,12 @@ def stop_tunnel(pids: list[int] | int | None = None,
                 pass
     # SIGKILL is not instant: the process is dead a moment later, and checking
     # the same microsecond made a successful stop report "survived SIGKILL".
-    deadline = time.monotonic() + 3.0
+    deadline = time.monotonic() + 0.5
     while time.monotonic() < deadline:
         _reap()
         if not any(_proc_alive(pid) for pid in stopped):
             break
-        time.sleep(0.05)
+        time.sleep(0.02)
     survivors = [pid for pid in stopped if _proc_alive(pid)]
     # The pidfile describes *the* connector. Only clear it when the pid it names
     # is one of the pids that just went away — retiring an extra connector must
@@ -900,6 +906,9 @@ def stop_tunnel(pids: list[int] | int | None = None,
             pidfile.unlink()
         except OSError:
             pass
+    if stopped:
+        print(f"cloudflared: stopped {stopped} in {time.monotonic() - started:.2f}s",
+              flush=True)
     return {"ok": not survivors, "stopped": [p for p in stopped if p not in survivors],
             "survivors": survivors}
 
@@ -1047,6 +1056,7 @@ def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
     new one is registered — a failed start must never leave nothing running.
     """
     global _cached
+    started = time.monotonic()
     with _lock:
         _reap()
         set_desired("on")
@@ -1067,4 +1077,6 @@ def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
                 print(f"cloudflared: retired {survivors} after a clean start", flush=True)
             retire_stale_tunnel(keep=tunnel.pid)
         _cached = tunnel
+        print(f"cloudflared: restart finished in {time.monotonic() - started:.2f}s",
+              flush=True)
         return tunnel

@@ -27,9 +27,11 @@ Provenance, one line per card element (the long form is ``REAL-DATA.md``):
     origin IP          https://1.1.1.1/cdn-cgi/trace -> ip= (what the edge sees)
     error reason       the connector's own log, "Register tunnel error ..."
 
-The memory and CPU budgets are the panel's convention (one core, 256 MB): the
-process runs in a cgroup with ``memory.max = max`` and no ``cpu.max`` here, so
-the kernel has no limit to read and the card says so instead of pretending.
+CPU and memory budgets are read from the container, not invented: ``resources.
+available_cores()`` combines cgroup v2 quota/cpuset with the process affinity,
+and ``resources.memory_limit_bytes()`` reads ``memory.max`` (3 GiB on Streamlit
+Cloud) before falling back to the panel's demo budget. ``/proc/meminfo`` and
+``os.cpu_count()`` describe the HOST and are never used for the card.
 """
 
 from __future__ import annotations
@@ -45,6 +47,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from resources import available_cores, memory_limit_bytes
+
 PROC = Path("/proc")
 CLOCK_TICKS = 100  # USER_HZ on Linux/amd64; the /proc contract, not a guess
 PAGE_SIZE = os.sysconf("SC_PAGE_SIZE")
@@ -56,6 +60,7 @@ TRACE_URL = "https://1.1.1.1/cdn-cgi/trace"
 HTTP_TIMEOUT = 0.8
 TRACE_EVERY = 60.0  # the egress IP changes rarely; no need to ask every second
 STATE_NAMES = {"R": "running", "S": "sleeping", "D": "io wait", "T": "stopped", "Z": "zombie", "I": "idle"}
+_VERSION_CACHE: dict[str, str] = {}
 
 
 # ---------------------------------------------------------------- /proc reads
@@ -80,7 +85,9 @@ def cpu_rate(previous: tuple[float, int] | None, ticks: int, now: float, age: fl
         percent = ticks / CLOCK_TICKS / age * 100.0
     else:
         percent = 0.0
-    return max(0.0, min(percent, 100.0 * (os.cpu_count() or 1)))
+    # A Go connector can use several cores at once: cap against the cgroup's
+    # real allowance, not os.cpu_count() (the host's 16 on Streamlit Cloud).
+    return max(0.0, min(percent, 100.0 * available_cores()))
 
 
 def proc_stat(pid: int) -> dict[str, Any] | None:
@@ -778,6 +785,22 @@ class Collector:
         cpu_segments, cpu_points = spark(cpu_series, cpu_levels)
         mem_segments, mem_points = spark(mem_series, mem_levels)
 
+        cores = available_cores()
+        exe = proc_exe(self.pid) or ""
+        version = self._metrics.get("version") or ""
+        if not version and exe:
+            # The metrics endpoint is optional: never freeze on the demo
+            # version when the running binary can simply be asked.
+            cached = _VERSION_CACHE.get(exe)
+            if cached is None:
+                import bootstrap
+
+                try:
+                    cached = bootstrap.version_of(Path(exe))
+                except Exception:  # noqa: BLE001 - a probe must not break the page
+                    cached = "unknown"
+                _VERSION_CACHE[exe] = cached
+            version = cached
         mem_limit = proc_memory_limit(self.pid)
         mem_budget = f"{mem_limit:.0f} MB" if mem_limit else f"{DEMO_MEM:.0f} MB"
         live = int(self._ready.get("ready", 0))
@@ -820,10 +843,10 @@ class Collector:
             "cpu": cpu_now,
             "cpu_text": cpu_text(cpu_now),
             "cpu_level": level(cpu_now, "cpu"),
-            "cpu_budget": "one core",
-            "cpu_share": (f"{100.0 * cpu_now / DEMO_CPU:.2f}% of one core"
-                          if 0 < cpu_now / DEMO_CPU < 1
-                          else f"{100.0 * cpu_now / DEMO_CPU:.0f}% of one core"),
+            "cpu_budget": f"{cores} cores",
+            # cpu_now is single-core-equivalent percent (0..100*cores). Show the
+            # share of the *container's* allowance, not of an imaginary core.
+            "cpu_share": f"{cpu_now / cores:.2f}% of {cores} cores",
             "cpu_peak": f"{max(cpu_series):.1f}%",
             "cpu_series": cpu_series,
             "cpu_levels": cpu_levels,
@@ -847,9 +870,9 @@ class Collector:
             "threads": stat.get("threads", 0),
             "restarts": [],
             "restart_count": 0,
-            "version": self._metrics.get("version") or "unknown",
-            "available": self._metrics.get("version") or "unknown",
-            "path": proc_exe(self.pid) or "—",
+            "version": version or "unknown",
+            "available": version or "unknown",
+            "path": exe or "—",
             "samples": SAMPLES,
             "interval": 1.0,
             "source": "live",
