@@ -147,6 +147,14 @@ def test_staleness_is_observed_not_subtracted_from_the_clock():
     assert "now - beatSeen" in body
 
 
+def test_the_card_polls_the_viewer_prefixed_path():
+    """On *.streamlit.app the app runs under /~/+/, so the card must not
+    request the leading-slash path that answers with the HTML shell."""
+    shell = (CARD.parent / "app.py").read_text()
+    assert "bootstrap.viewer_state_path(page_host)" in shell
+    assert "state_url = bootstrap.STATE_PATH" not in shell
+
+
 def test_the_poll_defeats_a_heuristic_cache():
     """The static file has no Cache-Control, so a plain GET may be served from
     the browser's heuristic cache and freeze the card for minutes."""

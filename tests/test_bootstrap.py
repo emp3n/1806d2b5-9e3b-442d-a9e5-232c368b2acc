@@ -326,17 +326,16 @@ def test_a_young_connector_is_adopted_before_the_hostname_answers(tmp_path, monk
     assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None
 
 
-def test_an_old_connector_is_replaced_only_after_repeated_misses(tmp_path, monkeypatch):
-    """The old rule was "one failed probe and it is stuck", and that is what made
-    a healthy connector get replaced by a page load. Evidence now takes strikes."""
+def test_an_old_connector_is_never_replaced_over_a_public_probe(tmp_path, monkeypatch):
+    """A registered connector with live edges is reusable regardless of what
+    the public name answers to a probe from inside the container (403 there)."""
     args = _fake_runtime(tmp_path)
     _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 10, public=False)
     monkeypatch.setattr(bootstrap, "_public_failures", {})
-    for _ in range(bootstrap.PUBLIC_STRIKES - 1):
-        assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None
-        count, _last = bootstrap._public_failures[4242]
-        bootstrap._public_failures[4242] = (count, 0.0)   # CHECK_EVERY elapses
-    assert bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is None
+    for _ in range(bootstrap.PUBLIC_STRIKES + 1):
+        tunnel = bootstrap.adopt_running_tunnel(8501, directory=tmp_path)
+        assert tunnel is not None and tunnel.ok
+        assert bootstrap.reusable(tunnel) is True
 
 
 def test_a_quick_connector_is_recognised_by_its_url_flag(tmp_path, monkeypatch):
@@ -616,18 +615,33 @@ def test_one_missed_probe_does_not_condemn_a_registered_connector(tmp_path, monk
     assert tunnel is not None and tunnel.ok, "a registered connector must survive one miss"
 
 
-def test_repeated_misses_do_condemn_it(tmp_path, monkeypatch):
-    """A hostname that has failed PUBLIC_STRIKES times in a row is real evidence."""
+def test_repeated_public_misses_never_condemn_a_registered_connector(tmp_path, monkeypatch):
+    """A Cloud container gets 403 from the edge on every probe of the public
+    name, even with all four edges live. The old strike rule replaced a healthy
+    connector every few minutes — the operator saw a tunnel that restarted by
+    itself and a core pinned at 100 % during each fresh registration."""
     args = _fake_runtime(tmp_path)
     _pin(monkeypatch, args, age=bootstrap.STUCK_AFTER + 60, public=False)
     monkeypatch.setattr(bootstrap, "_public_failures", {})
     verdicts = []
-    for _ in range(bootstrap.PUBLIC_STRIKES):
+    for _ in range(bootstrap.PUBLIC_STRIKES + 2):
         verdicts.append(bootstrap.adopt_running_tunnel(8501, directory=tmp_path) is not None)
-        count, _last = bootstrap._public_failures[4242]
+        count, _last = bootstrap._public_failures.get(4242, (0, 0.0))
         bootstrap._public_failures[4242] = (count, 0.0)   # CHECK_EVERY elapses
-    assert verdicts[:-1] == [True] * (bootstrap.PUBLIC_STRIKES - 1), verdicts
-    assert verdicts[-1] is False, verdicts
+    assert verdicts == [True] * (bootstrap.PUBLIC_STRIKES + 2), verdicts
+
+
+def test_the_state_path_follows_the_viewer_prefix():
+    """One channel, but Cloud's viewer adds /~/+/: a leading-slash path misses
+    it and the browser receives the Streamlit HTML shell instead of JSON."""
+    assert bootstrap.viewer_state_path("https://streamlit.idealis.cc/") == \
+        "/app/static/state.json"
+    assert bootstrap.viewer_state_path("http://localhost:8501/") == \
+        "/app/static/state.json"
+    assert bootstrap.viewer_state_path(
+        "https://1806d2b5-9e3b-442d-a9e5-232c368b2acc.streamlit.app/~/+/") == \
+        "/~/+/app/static/state.json"
+    assert bootstrap.viewer_state_path("") == "/app/static/state.json"
 
 
 def test_a_recovered_probe_clears_the_strikes(tmp_path, monkeypatch):

@@ -194,10 +194,12 @@ else:
 last = st.session_state.get("last_action")
 
 # ---- the card --------------------------------------------------------------
-# The address is relative on purpose: the card resolves it against its own
-# document, which is the app on whatever hostname the browser used (localhost,
-# *.streamlit.app, streamlit.idealis.cc). One path, no CORS, no second port.
-state_url = bootstrap.STATE_PATH
+# Same origin, no CORS, no second port — but the path is NOT the same on every
+# host. Community Cloud runs the viewer under /~/+/, so a leading-slash
+# /app/static/... misses the prefix and answers with an HTML shell; the card
+# then says "state unreachable" even though the tunnel serves the numbers
+# fine. Deriving the path from st.context.url keeps the one channel honest.
+state_url = bootstrap.viewer_state_path(page_host)
 
 page = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'

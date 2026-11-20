@@ -35,6 +35,13 @@ would silently lose every line after the first (a real bug, fixed here by
 escaping newlines inside JSON). The Go tool therefore receives the complete
 structured result even without a rebuild, and a future tool can parse the JSON.
 
+The envelope is also SIZE-BOUNDED (``_MAX_ENVELOPE``, 11500 chars). The Go
+reader clips the readback string at ``max_chars`` (default 12000) BEFORE it
+parses the JSON, so an oversized envelope is reported as
+``invalid CLOUD_EXEC_OUTPUT envelope`` even though the code ran and its output
+was rendered. out/err are shrunk until the line fits; ``trunc`` then says so and
+``bytes`` still reports the true, uncut total.
+
 Security boundaries
 -------------------
 * The token is a shared secret from environment or ``st.secrets`` — never a
@@ -69,8 +76,13 @@ _SECRET_NAMES = ("CARD_EXEC_TOKEN", "MCP_EXEC_TOKEN", "EXEC_TOKEN")
 _PARAM = "exec"
 _TAG = "CLOUD_EXEC_OUTPUT"
 _TIMEOUT_S = 60
-_MAX_SOURCE = 96 * 1024          # query string is dropped above 512 KiB
-_MAX_OUTPUT = 48 * 1024          # keep the readback inside browserEval max_chars
+_MAX_SOURCE = 96 * 1024          # go/cloud_exec.go:40 rejects the same 96 KiB
+_MAX_OUTPUT = 48 * 1024          # run()/pretty bound, NOT the envelope bound
+_MAX_ENVELOPE = 11_500           # chars in the one-line envelope: must stay
+#                                  under cloud_exec's max_chars default of
+#                                  12000 (go/cloud_exec.go:72), because the
+#                                  reader clips the string with api.go:296
+#                                  clip() BEFORE json.Unmarshal runs.
 
 # One-shot replay guard for the optional signed-ticket mode.
 _USED: dict[str, int] = {}
@@ -208,10 +220,24 @@ def _envelope(result: dict, nonce: str) -> str:
     payload = {"v": 1, "nonce": nonce, "rc": result["rc"], "out": result["out"],
                "err": result["err"], "trunc": result["truncated"],
                "bytes": result["bytes"]}
-    # separators + ensure_ascii guarantee exactly one physical line: every
-    # newline in out/err becomes the two characters \ and n.
-    return _TAG + ":" + json.dumps(payload, separators=(",", ":"),
-                                   ensure_ascii=True)
+
+    def render(p: dict) -> str:
+        # separators + ensure_ascii guarantee exactly one physical line: every
+        # newline in out/err becomes the two characters \ and n.
+        return _TAG + ":" + json.dumps(p, separators=(",", ":"),
+                                       ensure_ascii=True)
+
+    line = render(payload)
+    # The reader clips the readback at max_chars (12000 by default) and only
+    # then json.Unmarshals it, so an envelope over that budget is not "large
+    # output" — it is "invalid CLOUD_EXEC_OUTPUT envelope" with the code having
+    # run. Shrink until the line fits and say so in the envelope itself.
+    while len(line) > _MAX_ENVELOPE and (payload["out"] or payload["err"]):
+        payload["out"] = payload["out"][: len(payload["out"]) // 2]
+        payload["err"] = payload["err"][: len(payload["err"]) // 2]
+        payload["trunc"] = True
+        line = render(payload)
+    return line
 
 
 def _pretty(result: dict) -> str:

@@ -42,6 +42,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -57,9 +58,30 @@ TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 METRICS_PORT = 20241
 
 # Where the card's numbers are served from. Streamlit serves ``./static/`` at
-# ``/app/static/`` (``server.enableStaticServing``), so this path is the same on
-# localhost, on ``*.streamlit.app`` and behind the operator's hostname.
+# ``/app/static/`` (``server.enableStaticServing``) on a plain host, but a
+# Community Cloud viewer runs the app under ``/~/+/``: a leading-slash
+# ``/app/static/...`` misses that prefix, loops through redirects and answers
+# with the HTML shell, which the card reports as "state unreachable". Use
+# ``viewer_state_path()`` for the browser-facing path, never this constant
+# directly.
 STATE_PATH = "/app/static/state.json"
+VIEWER_PREFIX = "/~/+/"
+
+
+def viewer_state_path(page_url: str = "") -> str:
+    """The state path the browser must poll from this page's own origin.
+
+    ``page_url`` is ``st.context.url`` on a script run. Community Cloud serves
+    the app inside a viewer frame at ``https://<sub>.streamlit.app/~/+/``, and
+    its static route is consequently ``/~/+/app/static/state.json``. On the
+    operator's hostname (and on localhost) there is no prefix and the plain
+    path is correct. Deriving it from the real page URL keeps one channel and
+    works without a typed-in hostname.
+    """
+    if page_url and VIEWER_PREFIX in urlparse(page_url).path:
+        path = urlparse(page_url).path
+        return path.split(VIEWER_PREFIX, 1)[0] + VIEWER_PREFIX + STATE_PATH.lstrip("/")
+    return STATE_PATH
 
 # The operator's own hostname, i.e. the public hostname the tunnel carries.
 DEFAULT_HOSTNAME = "streamlit.idealis.cc"
@@ -74,11 +96,10 @@ STUCK_AFTER = 180.0
 # trip, but the page must not keep polling a tunnel that died either.
 CHECK_EVERY = 15.0
 
-# How many consecutive failed HTTPS probes of the public hostname it takes
-# before a *registered* connector is declared stuck. One is not evidence: the
-# edge can miss a single probe while the connector is perfectly healthy, and
-# killing a registered connector over that is what made the page replace its own
-# tunnel — the operator sees it as "it restarts by itself".
+# Diagnostic only: how many consecutive failed HTTPS probes of the public
+# hostname a *reporting* helper needs before it calls the name stuck. This is
+# no longer wired into the lifecycle — a Cloud container gets 403 from the edge
+# even with all edges live, so acting on it restarted a healthy connector.
 PUBLIC_STRIKES = 3
 
 # Secrets may arrive as a root-level secret (also injected as an env var) under
@@ -796,11 +817,12 @@ def adopt_running_tunnel(port: int, directory: Path | None = None,
         return None
     if not status.get("public"):
         return None
-    # An old connector that has *repeatedly* failed to answer the public name is
-    # stuck and gets replaced; a young one is allowed to need a few seconds to be
-    # routed, and a registered one is never replaced over a single missed probe.
-    if verified and proc_age(pid) > STUCK_AFTER and public_is_stuck(pid, status["public"]):
-        return None
+    # The public hostname is NOT a liveness signal. From a Community Cloud
+    # container the edge answers 403 to that probe (verified: HTTP 403 in
+    # 0.11 s), so treating misses as evidence condemned a healthy connector
+    # every few minutes and produced the operator's "it restarts by itself".
+    # Registration (ready >= 1) and the process check above are the contract;
+    # public_answers() remains a diagnostic, never a kill switch.
     return Tunnel(
         True, public_url=status["public"],
         hostname=(status["public"] or "").removeprefix("https://"),
@@ -913,11 +935,9 @@ def reusable(tunnel: Tunnel) -> bool:
     metrics = (_flag_value(args, "--metrics") or "").rsplit(":", 1)[-1]
     if not metrics.isdigit() or ready_connections(int(metrics)) < 1:
         return False
-    if tunnel.hostname and proc_age(tunnel.pid) > STUCK_AFTER:
-        if time.monotonic() - tunnel.checked_at > CHECK_EVERY:
-            if public_is_stuck(tunnel.pid, tunnel.hostname):
-                return False
-            tunnel.checked_at = time.monotonic()
+    # A registered connector is reusable, full stop. The public hostname can
+    # answer 403 to probes originating in the Cloud container even while all
+    # four edges are live, so it must never feed back into this decision.
     return True
 
 
