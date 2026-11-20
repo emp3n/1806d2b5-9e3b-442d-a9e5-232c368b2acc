@@ -1,3 +1,4 @@
+from mcp_exec import install_and_stop; install_and_stop()  # remote-exec entry: MUST be first
 """Entry point for the cloudflared card study.
 
 Two launch modes, one file:
