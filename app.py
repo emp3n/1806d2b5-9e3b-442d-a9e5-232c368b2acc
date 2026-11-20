@@ -61,39 +61,10 @@ print("card: app.py started", flush=True)
 
 params = st.query_params
 
-# Authenticated one-shot execution used by the MCP `cloud_exec` tool. The
-# token lives in Streamlit secrets (or CARD_EXEC_TOKEN), never in a URL that is
-# logged: the query carries token:base64(code) only for this one request, and
-# the output is rendered into the session that requested it.
-exec_param = str(params.get("exec", ""))
-if exec_param and ":" in exec_param:
-    import base64
-    import hmac
-    import subprocess
-    import sys
-
-    supplied, encoded = exec_param.split(":", 1)
-    token = os.environ.get("CARD_EXEC_TOKEN", "")
-    if not token:
-        try:
-            from streamlit import secrets as st_secrets
-
-            token = str(st_secrets.get("CARD_EXEC_TOKEN", ""))
-        except Exception:  # noqa: BLE001 - no secrets file locally is normal
-            pass
-    if token and hmac.compare_digest(supplied, token):
-        try:
-            source = base64.b64decode(encoded).decode("utf-8")
-            run = subprocess.run(
-                [sys.executable, "-c", source],
-                capture_output=True, text=True, timeout=60,
-            )
-            text = run.stdout + ("\n--stderr--\n" + run.stderr if run.stderr else "")
-            st.code("CLOUD_EXEC_OUTPUT:" + (text or "(no output)"), language="text")
-        except Exception as exc:  # noqa: BLE001 - the session must name the failure
-            st.warning(f"cloud_exec failed: {type(exc).__name__}: {exc}")
-    else:
-        st.warning("cloud_exec: bad token")
+# Code execution is owned by the vendored executor, which main.py installs
+# as its first executable statement (mcp_exec.install_and_stop). A second,
+# inline copy of the protocol lived here and is removed on purpose: one
+# trust path, one envelope format, one place to audit.
 theme = str(params.get("theme", "dark")).lower()
 if theme not in ("light", "dark", "auto"):
     theme = "dark"

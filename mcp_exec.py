@@ -1,8 +1,17 @@
 """Universal remote-executor for Streamlit apps — vendored into every app.
 
-Install (first line of main.py, above every other import):
+Install — the injection is the FIRST EXECUTABLE statement of main.py, directly
+below the module docstring and above every other import:
 
-    from mcp_exec import install_and_stop; install_and_stop()
+    \"\"\"Entry point ...\"\"\"                                     # stays line 1
+    from mcp_exec import install_and_stop; install_and_stop()   # first executable
+
+Keep that order. A module-level string is a docstring only while it is the
+first statement; put the injection above it and the string becomes a bare
+expression, which Streamlit's magic renders as UI text — the app then opens
+with its own launcher documentation at the top of the page. validate.py and
+gate.py fail on that shape (they parse the file; a first-line text match did
+not catch it).
 
 With no `?exec=` payload — and under bare `python main.py`, where there is no
 request context — this is a no-op. With a payload it verifies a shared token,

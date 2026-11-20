@@ -1,4 +1,3 @@
-from mcp_exec import install_and_stop; install_and_stop()  # remote-exec entry: MUST be first
 """Entry point for the cloudflared card study.
 
 Two launch modes, one file:
@@ -13,6 +12,8 @@ Target: Streamlit 1.64.0 (the pin in the repository root).
 This file is a launcher, not the app. The UI lives in ``app.py`` so AppTest can
 import it without a server collision. Do not add UI here.
 """
+
+from mcp_exec import install_and_stop; install_and_stop()  # remote-exec entry: first executable statement
 
 from pathlib import Path
 
