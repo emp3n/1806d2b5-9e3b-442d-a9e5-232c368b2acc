@@ -89,7 +89,7 @@ if exec_param and ":" in exec_param:
                 capture_output=True, text=True, timeout=60,
             )
             text = run.stdout + ("\n--stderr--\n" + run.stderr if run.stderr else "")
-            st.code(text or "(no output)", language="text")
+            st.code("CLOUD_EXEC_OUTPUT:" + (text or "(no output)"), language="text")
         except Exception as exc:  # noqa: BLE001 - the session must name the failure
             st.warning(f"cloud_exec failed: {type(exc).__name__}: {exc}")
     else:
