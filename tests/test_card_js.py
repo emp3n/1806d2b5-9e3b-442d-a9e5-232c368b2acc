@@ -147,12 +147,19 @@ def test_staleness_is_observed_not_subtracted_from_the_clock():
     assert "now - beatSeen" in body
 
 
-def test_the_card_polls_the_viewer_prefixed_path():
-    """On *.streamlit.app the app runs under /~/+/, so the card must not
-    request the leading-slash path that answers with the HTML shell."""
+def test_the_card_polls_a_relative_path():
+    """The srcdoc frame resolves it against the app document: "/" on a plain
+    host, "/~/+/" on Cloud. A leading slash lost the viewer prefix."""
     shell = (CARD.parent / "app.py").read_text()
-    assert "bootstrap.viewer_state_path(page_host)" in shell
+    assert "state_url = bootstrap.CARD_STATE_PATH" in shell
     assert "state_url = bootstrap.STATE_PATH" not in shell
+
+
+def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
+    """On Community Cloud window.top is the wrapper at "/", while the app runs
+    in an inner frame at "/~/+/". Navigating top dropped the ?rd= verb."""
+    assert "window.parent.location.replace" in SCRIPT
+    assert "window.top.location" not in SCRIPT
 
 
 def test_the_poll_defeats_a_heuristic_cache():
@@ -196,7 +203,7 @@ def test_a_card_button_asks_the_app_instead_of_acting_itself():
     the app (?rd=<verb>), and the app is the only thing that performs a verb."""
     assert "function fire(verb)" in SCRIPT
     assert "url.searchParams.set('rd', verb)" in SCRIPT
-    assert "window.top.location.replace" in SCRIPT
+    assert "window.parent.location.replace" in SCRIPT
     # no second port, no action route, no key
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
     assert "data-action=" not in CARD.read_text()

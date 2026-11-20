@@ -194,12 +194,11 @@ else:
 last = st.session_state.get("last_action")
 
 # ---- the card --------------------------------------------------------------
-# Same origin, no CORS, no second port — but the path is NOT the same on every
-# host. Community Cloud runs the viewer under /~/+/, so a leading-slash
-# /app/static/... misses the prefix and answers with an HTML shell; the card
-# then says "state unreachable" even though the tunnel serves the numbers
-# fine. Deriving the path from st.context.url keeps the one channel honest.
-state_url = bootstrap.viewer_state_path(page_host)
+# Same origin, no CORS, no second port. The path is RELATIVE on purpose: the
+# card is a srcdoc iframe and the browser resolves it against the app document.
+# On a plain host that is "/" and on Community Cloud it is "/~/+/", so one
+# string covers both; a leading slash skipped /~/+/ and served the HTML shell.
+state_url = bootstrap.CARD_STATE_PATH
 
 page = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'

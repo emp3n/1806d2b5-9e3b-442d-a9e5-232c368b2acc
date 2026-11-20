@@ -631,17 +631,13 @@ def test_repeated_public_misses_never_condemn_a_registered_connector(tmp_path, m
     assert verdicts == [True] * (bootstrap.PUBLIC_STRIKES + 2), verdicts
 
 
-def test_the_state_path_follows_the_viewer_prefix():
-    """One channel, but Cloud's viewer adds /~/+/: a leading-slash path misses
-    it and the browser receives the Streamlit HTML shell instead of JSON."""
-    assert bootstrap.viewer_state_path("https://streamlit.idealis.cc/") == \
-        "/app/static/state.json"
-    assert bootstrap.viewer_state_path("http://localhost:8501/") == \
-        "/app/static/state.json"
-    assert bootstrap.viewer_state_path(
-        "https://1806d2b5-9e3b-442d-a9e5-232c368b2acc.streamlit.app/~/+/") == \
-        "/~/+/app/static/state.json"
-    assert bootstrap.viewer_state_path("") == "/app/static/state.json"
+def test_the_card_state_path_is_relative():
+    """One channel, resolved by the browser against the app document: "/" on a
+    plain host, "/~/+/" on Community Cloud. A leading slash skipped the viewer
+    prefix and the browser got the HTML shell instead of JSON."""
+    assert bootstrap.STATE_PATH == "/app/static/state.json"
+    assert bootstrap.CARD_STATE_PATH == "app/static/state.json"
+    assert not bootstrap.CARD_STATE_PATH.startswith("/")
 
 
 def test_a_recovered_probe_clears_the_strikes(tmp_path, monkeypatch):

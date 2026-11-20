@@ -42,7 +42,6 @@ import subprocess
 import threading
 import time
 import urllib.request
-from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -62,26 +61,17 @@ METRICS_PORT = 20241
 # Community Cloud viewer runs the app under ``/~/+/``: a leading-slash
 # ``/app/static/...`` misses that prefix, loops through redirects and answers
 # with the HTML shell, which the card reports as "state unreachable". Use
-# ``viewer_state_path()`` for the browser-facing path, never this constant
-# directly.
+# ``CARD_STATE_PATH`` (relative) in the browser; this absolute form is only for
+# server-side probes and the Tunnel record.
 STATE_PATH = "/app/static/state.json"
-VIEWER_PREFIX = "/~/+/"
 
-
-def viewer_state_path(page_url: str = "") -> str:
-    """The state path the browser must poll from this page's own origin.
-
-    ``page_url`` is ``st.context.url`` on a script run. Community Cloud serves
-    the app inside a viewer frame at ``https://<sub>.streamlit.app/~/+/``, and
-    its static route is consequently ``/~/+/app/static/state.json``. On the
-    operator's hostname (and on localhost) there is no prefix and the plain
-    path is correct. Deriving it from the real page URL keeps one channel and
-    works without a typed-in hostname.
-    """
-    if page_url and VIEWER_PREFIX in urlparse(page_url).path:
-        path = urlparse(page_url).path
-        return path.split(VIEWER_PREFIX, 1)[0] + VIEWER_PREFIX + STATE_PATH.lstrip("/")
-    return STATE_PATH
+# What the CARD asks for. It is deliberately RELATIVE: the card lives in a
+# srcdoc iframe and the browser resolves this against the app document's URL.
+# On a plain host that is "/" -> /app/static/state.json; on Community Cloud it
+# is "/~/+/" -> /~/+/app/static/state.json. A leading slash there skips the
+# viewer prefix, loops through redirects and answers with the HTML shell —
+# exactly the "state unreachable" the operator saw while the tunnel worked.
+CARD_STATE_PATH = "app/static/state.json"
 
 # The operator's own hostname, i.e. the public hostname the tunnel carries.
 DEFAULT_HOSTNAME = "streamlit.idealis.cc"

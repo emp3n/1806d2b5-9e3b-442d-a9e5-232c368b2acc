@@ -606,9 +606,11 @@ def render(
     }}
     /* ---- the verbs: the card asks, the app answers ----
        A button in this iframe cannot start a process and must not claim it did.
-       A click navigates this page to ``?rd=<verb>``; app.py runs the verb in the
-       Streamlit process, reports the outcome and clears the parameter. The card
-       then paints whatever is true — so the button can be wrong about nothing. */
+       A click navigates the PARENT app document to ``?rd=<verb>`` (on Community
+       Cloud ``window.top`` is the outer wrapper, so using it would reload the
+       wrapper and drop the verb). app.py runs the verb in the Streamlit
+       process, reports the outcome and clears the parameter. The card then
+       paints whatever is true — so the button can be wrong about nothing. */
     var powerBtn = document.querySelector('[data-verb="power"]');
     var restartBtn = document.querySelector('[data-verb="restart"]');
     var armTimer = null;
@@ -636,15 +638,15 @@ def render(
     }}
 
     function fire(verb) {{
-      var here = window.top.location.href;
+      var here = window.parent.location.href;
       try {{
         var url = new URL(here);
         url.searchParams.set('rd', verb);
         /* replace, not assign: the page before the action is not somewhere the
            back button should return to and replay */
-        window.top.location.replace(url.toString());
+        window.parent.location.replace(url.toString());
       }} catch (err) {{
-        window.top.location.href = here.split('#')[0].split('?')[0] + '?rd=' + verb;
+        window.parent.location.href = here.split('#')[0].split('?')[0] + '?rd=' + verb;
       }}
     }}
 
