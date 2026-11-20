@@ -1,0 +1,4 @@
+a19 integration test marker
+created_utc: 2026-11-20T06:31:15.959Z
+purpose: harmless artifact to measure Streamlit Cloud push -> "Updated app!" -> cloud_exec latency
+no application source or configuration changed.
