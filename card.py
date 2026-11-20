@@ -222,11 +222,11 @@ def render(
           <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
           <span class="rd-geo" data-origin-geo>{esc(geo_city(state.get("origin_geo", {})))}</span>
         </span>
+        <span class="rd-fact" data-tone="shard"><span data-shard>{esc(state.get("shard", ""))}</span></span>
         <span class="rd-fact">
           <em>Edges</em><span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
         </span>
       </div>
-      <div class="rd-shard-line"><em>shard</em><b data-shard>{esc(state.get("shard", ""))}</b></div>
 
       <div class="rd-measures">
         {measure(state, "cpu")}
@@ -342,6 +342,7 @@ def render(
         if (g && /^[A-Z]{{2}}$/.test(g.cc || '')) slot.appendChild(flagNode(g.cc, false));
       }}
       set('[data-origin-geo]', g ? (g.city || g.region || '') : '');
+      set('[data-shard]', (data && data.shard) || '');
       var list = document.querySelector('[data-edge-list]');
       if (list) {{
         list.textContent = '';
@@ -356,7 +357,6 @@ def render(
         }});
         if (!edges.length) list.textContent = (data && data.edges) || '';
       }}
-      set('[data-shard]', (data && data.shard) || '');
     }}
     /* no process: dashes, not the last flattering numbers, and a line that
        decays to flat instead of freezing mid-air */

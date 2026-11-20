@@ -198,7 +198,7 @@ def test_the_chosen_memory_unit_survives_every_poll():
     assert "if (spark.key === 'mem') show(spark, spark.shown)" in SCRIPT
 
 
-def test_flags_city_and_shard_are_rendered_in_their_own_places():
+def test_shard_is_its_own_chip_beside_origin_not_inside_it():
     from card import render
     from demo_data import build_state
 
@@ -209,17 +209,33 @@ def test_flags_city_and_shard_are_rendered_in_their_own_places():
                           {"code": "fra04", "cc": "DE"}]
     state["shard"] = "shard-3"
     page = render(state, theme="dark")
-    origin = page[page.index('data-tone="origin"'):page.index('rd-facts') + 400]
-    assert origin.index('data-fact="origin"') < origin.index('data-origin-flag')
-    assert "app/static/flags/us.svg" in origin
-    assert "Kansas City" in origin and "Missouri" not in origin
+    start = page.index('<div class="rd-facts">')
+    facts = page[start:page.index('</div>', start)]
+    origin_chip = facts[facts.index('data-tone="origin"'):facts.index('data-tone="shard"')]
+
+    # origin keeps its flag + city, and no shard inside it
+    assert origin_chip.index('data-fact="origin"') < origin_chip.index('data-origin-flag')
+    assert "app/static/flags/us.svg" in origin_chip
+    assert "Kansas City" in origin_chip and "Missouri" not in origin_chip
+    assert "data-shard" not in origin_chip
+
+    # the shard is a sibling chip of the same .rd-fact class, containing only
+    # the cluster value — no label, no "shard - " duplication
+    shard_chip = '<span class="rd-fact" data-tone="shard"><span data-shard>shard-3</span></span>'
+    assert shard_chip in facts
+    assert facts.index('data-tone="origin"') < facts.index('data-tone="shard"') \
+           < facts.index('data-edge-list')
+    assert "rd-shard-line" not in page and "rd-shard-chip" not in page
+
     assert '<span class="rd-edge">sea01' in page
     assert 'class="rd-flag rd-flag--edge"' in page
-    assert '<div class="rd-shard-line">' in page
-    assert "shard-3" in page
     css = (CARD.parent / "theme.py").read_text()
     assert ".rd-flag--edge {" in css and "translateY(-3px)" in css
-    assert ".rd-shard-line {" in css
+    assert '.rd-fact[data-tone="shard"]' in css
+    assert ".rd-fact { gap: 7px; }" in css
+    assert "margin-right: 6px" in css
+    assert "set('[data-shard]', (data && data.shard) || '')" in SCRIPT
+    assert "shard - " not in page and "shard - " not in SCRIPT
 
 
 def test_geo_paint_is_guarded_against_injected_codes():

@@ -199,7 +199,8 @@ __TOKEN_BLOCKS__
   padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
 }
-.rd-fact em { font-style: normal; margin-right: 2px; color: var(--muted); }
+.rd-fact { gap: 7px; }
+.rd-fact em { font-style: normal; margin-right: 6px; color: var(--muted); }
 /* Local SVG flags only: no CDN, no PNG, no layout shift. The origin flag sits
    directly after the IP; an edge flag is a 9x7 superscript after each code. */
 .rd-flag-slot { display: inline-flex; align-items: center; margin-left: 3px; min-width: 0; }
@@ -215,16 +216,11 @@ __TOKEN_BLOCKS__
   font-size: 11px; color: var(--muted); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; max-width: 112px;
 }
+/* the shard is its own chip, the same size and type as Origin/Edges */
+.rd-fact[data-tone="shard"] { font-variant-numeric: tabular-nums; }
 .rd-edge-list { display: inline-flex; flex-wrap: wrap; align-items: center; }
 .rd-edge { display: inline-flex; align-items: flex-start; gap: 1px; white-space: nowrap; }
 .rd-comma { color: var(--muted); }
-/* the cluster is its own line — never stuffed into origin or edges */
-.rd-shard-line {
-  display: flex; align-items: center; gap: 6px; margin-top: -2px;
-  font-size: 11px; color: var(--muted);
-}
-.rd-shard-line em { font-style: normal; }
-.rd-shard-line b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .rd-fact[data-tone="mem"] { background: var(--chip-tint); }
 
 /* ---------- measures ---------- */
