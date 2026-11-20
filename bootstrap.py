@@ -19,6 +19,7 @@ including 255 — instead of leaving a page with silently frozen numbers.
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import re
@@ -232,6 +233,46 @@ def metrics_answers(port: int, timeout: float = 1.5) -> bool:
         return False
 
 
+def ready_connections(port: int, timeout: float = 1.5) -> int:
+    """How many edge connections this connector has registered right now.
+
+    A quick tunnel prints its URL *before* it is registered; a browser that
+    polls in that window (or polls a name whose connection died) gets
+    Cloudflare's 1033 "tunnel not connected" page while the process looks
+    perfectly healthy. Readiness is the only honest signal.
+    """
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/ready",
+                                    timeout=timeout) as reply:
+            payload = json.loads(reply.read().decode("utf-8", "replace"))
+        return int(payload.get("readyConnections") or payload.get("ready") or 0)
+    except Exception:  # noqa: BLE001 - an unreadable answer is zero connections
+        return 0
+
+
+def our_tunnels(directory: Path | None = None) -> list[int]:
+    """Every cloudflared this app started, from any script generation."""
+    directory = (directory or runtime_dir()).resolve()
+    found: list[int] = []
+    proc = Path("/proc")
+    if not proc.is_dir():
+        return found
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        args = _cmdline(int(entry.name))
+        if not args or "tunnel" not in args:
+            continue
+        try:
+            if Path(args[0]).resolve().parent != directory:
+                continue
+        except OSError:
+            continue
+        if "cloudflared" in os.path.basename(args[0]):
+            found.append(int(entry.name))
+    return sorted(found)
+
+
 def feed_answers(url: str, timeout: float = 4.0) -> bool:
     """Does the public tunnel really serve the feed right now?"""
     try:
@@ -278,6 +319,8 @@ def adopt_running_tunnel(feed_port: int, directory: Path | None = None,
         return None
     public = found[-1]
     api_url = f"{public}/api/state"
+    if not ready_connections(int(port)):
+        return None
     if verified and not feed_answers(api_url):
         return None
     return Tunnel(True, api_url=api_url, public_url=public, binary=args[0],
@@ -339,8 +382,20 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
         return Tunnel(False, detail=(
             f"no tunnel URL in {log} after {wait_s:g}s\n{_log_tail(log)[-900:]}"
         ))
+    # A URL is not a connection. The name is registered before the edge accepts
+    # traffic, and a page that polls in that window shows Cloudflare's 1033
+    # "tunnel not connected" while the card already claims a feed address.
+    deadline = time.monotonic() + min(wait_s, 10.0)
+    while time.monotonic() < deadline:
+        if ready_connections(metrics) >= 1:
+            break
+        if proc.poll() is not None:
+            return Tunnel(False, detail=(
+                f"cloudflared exited with code {proc.returncode} while registering\n"
+                f"{_log_tail(log)[-900:]}"))
+        time.sleep(0.3)
     return Tunnel(True, api_url=f"{found}/api/state", public_url=found,
-                  binary=str(binary), pid=proc.pid)
+                  binary=str(binary), pid=proc.pid, checked_at=time.monotonic())
 
 
 _lock = threading.Lock()
@@ -371,27 +426,23 @@ def reusable(tunnel: Tunnel) -> bool:
     return True
 
 
-def retire_stale_tunnel(directory: Path | None = None) -> str:
-    """Stop a pidfile connector that could not be adopted.
+def retire_stale_tunnel(keep: int | None = None, directory: Path | None = None) -> str:
+    """Stop every connector of ours except the one the card will use.
 
-    It is ours (its path is the runtime binary), it is alive, and it is not
-    serving the feed — so it only holds a metrics port and a dead public name.
+    Two script generations racing at boot each start a cloudflared, and the
+    loser keeps its public name alive in DNS while nothing answers on it —
+    exactly Cloudflare's 1033 page. One app, one connector.
     """
-    pidfile = (directory or runtime_dir()) / "cf.pid"
-    try:
-        pid = int(pidfile.read_text().strip())
-    except (OSError, ValueError):
-        return ""
-    if not _proc_alive(pid):
-        return ""
-    args = _cmdline(pid)
-    if not args or "cloudflared" not in os.path.basename(args[0]) or "tunnel" not in args:
-        return ""
-    try:
-        os.kill(pid, 15)  # SIGTERM
-    except OSError:
-        return ""
-    return f"retired stale tunnel pid {pid}"
+    stopped = []
+    for pid in our_tunnels(directory):
+        if keep is not None and pid == keep:
+            continue
+        try:
+            os.kill(pid, 15)  # SIGTERM
+            stopped.append(pid)
+        except OSError:
+            continue
+    return f"retired tunnels {stopped}" if stopped else ""
 
 
 def ensure_tunnel(feed_port: int, *, force: bool = False,
@@ -411,6 +462,9 @@ def ensure_tunnel(feed_port: int, *, force: bool = False,
         _cached = None
         adopted = adopt_running_tunnel(feed_port, verified=verified) if not force else None
         if adopted is not None:
+            retired = retire_stale_tunnel(keep=adopted.pid)
+            if retired:
+                print(f"cloudflared: {retired}", flush=True)
             print(f"cloudflared: {adopted.message}", flush=True)
             _cached = adopted
             return adopted
@@ -420,6 +474,8 @@ def ensure_tunnel(feed_port: int, *, force: bool = False,
         try:
             binary = download()
             tunnel = start_quick_tunnel(binary, feed_port, wait_s=wait_s)
+            if tunnel.ok and tunnel.pid:
+                retire_stale_tunnel(keep=tunnel.pid)
         except Exception as exc:  # noqa: BLE001 - the card must name the failure
             tunnel = Tunnel(False, detail=f"{type(exc).__name__}: {exc}")
         print(f"cloudflared: {tunnel.message}", flush=True)
