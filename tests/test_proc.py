@@ -7,6 +7,7 @@ the expected numbers written out rather than compared against the code.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -569,3 +570,25 @@ def test_metrics_url_follows_the_connectors_own_listener():
         ["/x/cloudflared", "tunnel", "--metrics=127.0.0.1:20241", "run"]) == \
         "http://127.0.0.1:20241"
     assert live.metrics_url_for(["/x/cloudflared", "tunnel", "run"]) is None
+
+
+def test_each_edge_is_named_once():
+    """Four connections on two edges must not read "sea01, sea07, sea07, sea01".
+
+    The edges are read from the connector's own log (which lists one connection
+    per line), so the seam under test is the parsed log, not HTTP.
+    """
+    collector = live.Collector(metrics_url="")
+    # a real pid this test process owns, so state() takes its live branch
+    collector.pid = os.getpid()
+    collector._ready = {"status": 200, "ready": 4, "connector": "c-1"}
+    collector._log = {"conns": [
+        {"location": "sea01", "ip": "1.1.1.1"}, {"location": "sea07", "ip": "2.2.2.2"},
+        {"location": "sea07", "ip": "2.2.2.2"}, {"location": "sea01", "ip": "1.1.1.1"},
+    ]}
+    collector.cpu.append(0.4)
+    collector.mem.append(41.0)
+    state = collector.state()
+    assert state["live"] == 4
+    assert state["edge_names"] == "sea01, sea07", state["edge_names"]
+    assert [edge["code"] for edge in state["edges"]] == ["sea01", "sea07"]

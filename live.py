@@ -784,7 +784,11 @@ class Collector:
         # the edges come from the connector's own log: a registered connection
         # names its colo and address; a failing one at least names the address
         conns = self._log.get("conns") or []
-        codes = [conn["location"] for conn in conns if conn["location"]]
+        # four connections usually land on two edges, and listing the same
+        # airport twice ("sea01, sea07, sea07, sea01") reads as a bug in the
+        # numbers rather than as two QUIC tunnels to each edge
+        codes = list(dict.fromkeys(
+            conn["location"] for conn in conns if conn["location"]))
         edges = [conn["ip"] for conn in conns if conn["ip"]]
         note = ""
         if not live:
@@ -803,11 +807,12 @@ class Collector:
             "connected": live > 0,
             "live": live,
             "note": note,
-            "edges": [
-                {"code": conn.get("location", ""), "ip": conn.get("ip", ""), "rtt": "—",
-                 "state": "live" if live else "down"}
-                for conn in conns[:4]
-            ],
+            "edges": list({
+                conn.get("location", ""): {
+                    "code": conn.get("location", ""), "ip": conn.get("ip", ""),
+                    "rtt": "—", "state": "live" if live else "down"}
+                for conn in conns if conn.get("location")
+            }.values())[:4],
             "edge_names": ", ".join(codes[:4]) if codes else (
                 edges[0] if len(edges) == 1 else f"{edges[0]} +{len(edges) - 1}") if edges else "—",
             "edge_ip": self._trace.get("ip") or "—",
