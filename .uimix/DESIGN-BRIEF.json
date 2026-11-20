@@ -1,0 +1,389 @@
+{
+ "$schema": "uimixes-design-brief-1",
+ "created": "2026-11-19T06:00:21+00:00",
+ "updated": "2026-11-19T17:56:20+00:00",
+ "answers": {
+  "job": "A single cloudflared service card for the operator of an internal Streamlit console; read health and act on it",
+  "surface": "dashboard",
+  "copy": "short factual labels only, no marketing sentences",
+  "screens": "cloudflared service card",
+  "elements": [
+   "cards and list items",
+   "overlays (modal, menu, tooltip, toast)",
+   "status marks (badge, chip, avatar)",
+   "choices (checkbox, radio, switch, range)",
+   "buttons and their states"
+  ],
+  "data": "connection count; connector; cpu; memory; uptime; version; policy verdict; watchdog verdict; process state/pid/restarts; binary source",
+  "detail": "clickable — fake data, nothing saved",
+  "mood": "technical and precise — instruments, tables, monospace",
+  "style.edges": "soft",
+  "style.depth": "layered",
+  "style.order": "strict",
+  "style.voice": "quiet",
+  "style.reference": "technical",
+  "modes": "light + dark, chosen by the URL; no switch on the card",
+  "locale": [
+   "English only — no translation layer"
+  ],
+  "density": "compact (data-heavy, 32px rows)",
+  "a11y": "WCAG 2.2 AA (default)",
+  "seo": "no — behind auth or internal",
+  "motion3d": "no, CSS motion only",
+  "fonts": "our brand fonts (I will give files or names)",
+  "nav": "a vertical rail on the right, five sections: Overview, Services, Database, Shell, Logs",
+  "states": [
+   "hover / focus / active",
+   "loading",
+   "empty",
+   "error / validation",
+   "disabled",
+   "offline / stale"
+  ],
+  "theme": "you choose from the brand description",
+  "references": "the supplied cloudflared screenshot; Russo One + Golos Text; anti-slop design articles from the web",
+  "constraints": "only one card; dark/light switch; no real backend, no tokens; Streamlit 1.64 st.iframe",
+  "stack": "other (say which)",
+  "style": "dark-mode"
+ },
+ "skipped": [],
+ "notes": [],
+ "questions": [
+  "job",
+  "surface",
+  "stack",
+  "copy",
+  "screens",
+  "elements",
+  "data",
+  "detail",
+  "mood",
+  "style.edges",
+  "style.depth",
+  "style.order",
+  "style.voice",
+  "style.reference",
+  "style",
+  "modes",
+  "theme",
+  "locale",
+  "fonts",
+  "nav",
+  "density",
+  "states",
+  "a11y",
+  "seo",
+  "motion3d",
+  "references",
+  "constraints"
+ ],
+ "log": [
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "job",
+   "value": "A single cloudflared service card for the operator of an internal Streamlit console; read health and act on it",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "surface",
+   "value": "3",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "copy",
+   "value": "3",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "screens",
+   "value": "cloudflared service card",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "elements",
+   "value": [
+    "3",
+    "6",
+    "7",
+    "9",
+    "10"
+   ],
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "data",
+   "value": "connection count; connector; cpu; memory; uptime; version; policy verdict; watchdog verdict; process state/pid/restarts; binary source",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "detail",
+   "value": "2",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "mood",
+   "option": 3,
+   "value": "technical and precise — instruments, tables, monospace",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "style.edges",
+   "option": 1,
+   "value": "sharp",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "style.depth",
+   "option": 1,
+   "value": "flat",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "style.order",
+   "option": 1,
+   "value": "strict",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "style.voice",
+   "option": 1,
+   "value": "quiet",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:21+00:00",
+   "id": "style.reference",
+   "option": 3,
+   "value": "technical",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "modes",
+   "option": 4,
+   "value": "light + dark, with a visible switch in the shell",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "locale",
+   "option": 1,
+   "value": [
+    "English only — no translation layer"
+   ],
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "density",
+   "option": 1,
+   "value": "compact (data-heavy, 32px rows)",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "a11y",
+   "option": 1,
+   "value": "WCAG 2.2 AA (default)",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "seo",
+   "option": 3,
+   "value": "no — behind auth or internal",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "motion3d",
+   "option": 1,
+   "value": "no, CSS motion only",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "fonts",
+   "value": "our brand fonts (I will give files or names)",
+   "by": "agent",
+   "said": "our brand fonts (I will give files or names): Russo One + Golos Text",
+   "as": "our brand fonts (I will give files or names)"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "nav",
+   "value": "none — a single screen, no navigation",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "states",
+   "value": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+   ],
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "theme",
+   "value": "you choose from the brand description",
+   "by": "agent",
+   "said": "you choose from the brand description: technical instrument, paper white and near-black, one amber accent",
+   "as": "you choose from the brand description"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "references",
+   "value": "the supplied cloudflared screenshot; Russo One + Golos Text; anti-slop design articles from the web",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:00:22+00:00",
+   "id": "constraints",
+   "value": "only one card; dark/light switch; no real backend, no tokens; Streamlit 1.64 st.iframe",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:03+00:00",
+   "id": "surface",
+   "value": "dashboard",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:03+00:00",
+   "id": "copy",
+   "value": "short factual labels only, no marketing sentences",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:03+00:00",
+   "id": "detail",
+   "value": "clickable — fake data, nothing saved",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:03+00:00",
+   "id": "elements",
+   "value": [
+    "cards and list items",
+    "overlays (modal, menu, tooltip, toast)",
+    "status marks (badge, chip, avatar)",
+    "choices (checkbox, radio, switch, range)",
+    "buttons and their states"
+   ],
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:03+00:00",
+   "id": "states",
+   "value": [
+    "hover / focus / active",
+    "loading",
+    "empty",
+    "error / validation",
+    "disabled",
+    "offline / stale"
+   ],
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:04+00:00",
+   "id": "stack",
+   "value": "other (say which)",
+   "by": "agent",
+   "said": "other (say which): Streamlit 1.64 st.iframe — one self-contained HTML/CSS/JS document",
+   "as": "other (say which)"
+  },
+  {
+   "at": "2026-11-19T06:01:04+00:00",
+   "id": "style",
+   "option": 2,
+   "value": "developer-aesthetic",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T06:01:41+00:00",
+   "id": "style",
+   "value": "swiss-style",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T16:30:45+00:00",
+   "id": "style.edges",
+   "option": 2,
+   "value": "soft",
+   "by": "person",
+   "confirmed": true
+  },
+  {
+   "at": "2026-11-19T16:30:45+00:00",
+   "id": "style.depth",
+   "option": 3,
+   "value": "layered",
+   "by": "person",
+   "confirmed": true
+  },
+  {
+   "at": "2026-11-19T16:55:12+00:00",
+   "id": "style",
+   "option": 3,
+   "value": "dark-mode",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-19T17:56:20+00:00",
+   "id": "nav",
+   "value": "a vertical rail on the right, five sections: Overview, Services, Database, Shell, Logs",
+   "by": "person"
+  },
+  {
+   "at": "2026-11-19T17:56:20+00:00",
+   "id": "modes",
+   "value": "light + dark, chosen by the URL; no switch on the card",
+   "by": "agent"
+  }
+ ],
+ "provenance": {
+  "job": "agent",
+  "surface": "agent",
+  "copy": "agent",
+  "screens": "agent",
+  "elements": "agent",
+  "data": "agent",
+  "detail": "agent",
+  "mood": "agent",
+  "style.order": "agent",
+  "style.voice": "agent",
+  "style.reference": "agent",
+  "modes": "agent",
+  "locale": "agent",
+  "density": "agent",
+  "a11y": "agent",
+  "seo": "agent",
+  "motion3d": "agent",
+  "fonts": "agent",
+  "nav": "agent",
+  "states": "agent",
+  "theme": "agent",
+  "references": "agent",
+  "constraints": "agent",
+  "stack": "agent",
+  "style": "agent"
+ }
+}
