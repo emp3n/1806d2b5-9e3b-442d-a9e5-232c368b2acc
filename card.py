@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from typing import Any
 
 # the real Cloudflare mark (simple-icons, path unmodified), set on a brand plate
@@ -120,6 +121,20 @@ def measure(state: dict[str, Any], metric: str) -> str:
     </div>"""
 
 
+def flag_img(cc: str, cls: str = "rd-flag", label: str = "flag") -> str:
+    """A local SVG flag; no CDN, no PNG, no layout shift after the first paint."""
+    if not re.fullmatch(r"[A-Z]{2}", cc or ""):
+        return ""
+    path = f"app/static/flags/{cc.lower()}.svg"
+    return (f'<img class="{cls}" src="{path}" alt="{esc(cc)} {esc(label)}" '
+            f'title="{esc(cc)}" width="20" height="15" data-flag="{cc}">')
+
+
+def region_text(geo: dict[str, str]) -> str:
+    parts = [geo.get("cc", ""), geo.get("region") or geo.get("city", "")]
+    return " · ".join(p for p in parts if p)
+
+
 def render(
     state: dict[str, Any],
     *,
@@ -190,8 +205,16 @@ def render(
       </header>
 
       <div class="rd-facts">
-        <span class="rd-fact" data-tone="mem"><em>Origin IP</em><span data-fact="origin">{esc(state["edge_ip"])}</span></span>
-        <span class="rd-fact"><em>Edges</em><span data-fact="edges">{esc(state["edge_names"])}</span></span>
+        <span class="rd-fact" data-tone="origin">
+          <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
+          <em>Origin</em><span data-fact="origin">{esc(state["edge_ip"])}</span>
+          <span class="rd-geo" data-origin-geo>{esc(region_text(state.get("origin_geo", {})))}</span>
+          <span class="rd-shard" data-shard title="{esc(state.get("placement", ""))}">{esc(state.get("placement", ""))}</span>
+        </span>
+        <span class="rd-fact">
+          <span class="rd-edge-flags" data-edge-flags>{''.join(flag_img(g.get('cc',''), 'rd-flag rd-flag--edge', 'edge') for g in state.get('edges_geo', []))}</span>
+          <em>Edges</em><span data-fact="edges">{esc(state["edge_names"])}</span>
+        </span>
       </div>
 
       <div class="rd-measures">
@@ -293,9 +316,35 @@ def render(
       var node = document.querySelector(selector);
       if (node && text != null && node.textContent !== text) node.textContent = text;
     }}
+    function flagNode(cc, edge) {{
+      var img = document.createElement('img');
+      img.className = edge ? 'rd-flag rd-flag--edge' : 'rd-flag';
+      img.src = 'app/static/flags/' + cc.toLowerCase() + '.svg';
+      img.alt = cc; img.title = cc;
+      return img;
+    }}
+    function paintGeo(data) {{
+      var g = data && data.origin_geo;
+      var slot = document.querySelector('[data-origin-flag]');
+      if (slot) {{
+        slot.textContent = '';
+        if (g && /^[A-Z]{{2}}$/.test(g.cc || '')) slot.appendChild(flagNode(g.cc, false));
+      }}
+      var label = g ? [g.cc, g.region || g.city].filter(Boolean).join(' · ') : '';
+      set('[data-origin-geo]', label);
+      set('[data-shard]', (data && data.placement) || '');
+      var edges = document.querySelector('[data-edge-flags]');
+      if (edges) {{
+        edges.textContent = '';
+        (data && data.edges_geo || []).forEach(function (item) {{
+          if (item && /^[A-Z]{{2}}$/.test(item.cc || '')) edges.appendChild(flagNode(item.cc, true));
+        }});
+      }}
+    }}
     /* no process: dashes, not the last flattering numbers, and a line that
        decays to flat instead of freezing mid-air */
     function blank() {{
+      paintGeo({{}});
       set('[data-source]', 'live · no cloudflared process');
       set('[data-fact="origin"]', '—');
       set('[data-fact="edges"]', '—');
@@ -739,6 +788,7 @@ def render(
       }}
       set('[data-fact="origin"]', data.origin);
       set('[data-fact="edges"]', data.edges);
+      paintGeo(data);
       set('[data-uptime]', data.uptime);
       set('[data-version]', data.version);
       set('[data-path]', data.path);

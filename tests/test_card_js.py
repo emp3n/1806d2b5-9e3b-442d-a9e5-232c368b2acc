@@ -198,6 +198,34 @@ def test_the_chosen_memory_unit_survives_every_poll():
     assert "if (spark.key === 'mem') show(spark, spark.shown)" in SCRIPT
 
 
+def test_flags_region_and_placement_are_rendered_from_state():
+    from card import render
+    from demo_data import build_state
+
+    state = build_state(0)
+    state["origin_geo"] = {"cc": "US", "country": "United States",
+                           "region": "Missouri", "city": "Kansas City"}
+    state["edges_geo"] = [{"code": "sea01", "cc": "US", "region": "Washington"},
+                          {"code": "fra04", "cc": "DE", "region": "Hesse"}]
+    state["placement"] = "s4a-prod/us-west1-b"
+    page = render(state, theme="dark")
+    assert 'src="app/static/flags/us.svg"' in page
+    assert 'src="app/static/flags/de.svg"' in page
+    assert "US · Missouri" in page
+    assert "s4a-prod/us-west1-b" in page
+    assert 'class="rd-flag rd-flag--edge"' in page
+    css = (CARD.parent / "theme.py").read_text()
+    assert ".rd-flag--edge { width: 8px" in css
+    assert ".rd-shard" in css
+
+
+def test_geo_paint_is_guarded_against_injected_codes():
+    assert "function paintGeo(data)" in SCRIPT
+    assert "/^[A-Z]{{2}}$/.test(g.cc || '')" in SCRIPT
+    assert "'app/static/flags/' + cc.toLowerCase() + '.svg'" in SCRIPT
+    assert "slot.textContent = ''" in SCRIPT
+
+
 def test_the_card_polls_a_relative_path():
     """The srcdoc frame resolves it against the app document: "/" on a plain
     host, "/~/+/" on Cloud. A leading slash lost the viewer prefix."""

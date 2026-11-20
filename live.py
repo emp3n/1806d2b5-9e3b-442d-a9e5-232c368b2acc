@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+import geo
 from resources import available_cores, cores_text, memory_limit_bytes
 
 PROC = Path("/proc")
@@ -811,6 +812,19 @@ class Collector:
         # the edges come from the connector's own log: a registered connection
         # names its colo and address; a failing one at least names the address
         conns = self._log.get("conns") or []
+        # Geo is resolved here, in the sampler's background thread, and cached
+        # per IP: the card never calls a third-party API and every poll is cheap.
+        origin_geo = geo.lookup(self._trace.get("ip") or "")
+        edges_geo = []
+        for conn in conns[:4]:
+            info = geo.lookup(conn.get("ip") or "")
+            if not info:
+                continue
+            code = conn.get("location") or ""
+            if any(item["code"] == code for item in edges_geo):
+                continue
+            edges_geo.append({"code": code, "cc": info["cc"],
+                              "region": info["region"], "city": info["city"]})
         # four connections usually land on two edges, and listing the same
         # airport twice ("sea01, sea07, sea07, sea01") reads as a bug in the
         # numbers rather than as two QUIC tunnels to each edge
@@ -843,6 +857,9 @@ class Collector:
             "edge_names": ", ".join(codes[:4]) if codes else (
                 edges[0] if len(edges) == 1 else f"{edges[0]} +{len(edges) - 1}") if edges else "—",
             "edge_ip": self._trace.get("ip") or "—",
+            "origin_geo": origin_geo,
+            "edges_geo": edges_geo,
+            "placement": geo.placement(),
             "connector": self._ready.get("connector", "—"),
             "cpu": cpu_now,
             "cpu_text": cpu_text(cpu_now),

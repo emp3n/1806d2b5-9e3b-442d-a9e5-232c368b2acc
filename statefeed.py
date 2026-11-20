@@ -103,6 +103,8 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
     tunnel = tunnel or {}
     if not state.get("found"):
         payload: dict[str, Any] = {"found": False}
+        if state.get("placement"):
+            payload["placement"] = state["placement"]
         if last_action:
             payload["last_action"] = last_action
         if tunnel:
@@ -137,7 +139,10 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "version": state["version"],
         "path": state["path"],
         "origin": state["edge_ip"],
+        "origin_geo": state.get("origin_geo", {}),
         "edges": state["edge_names"],
+        "edges_geo": state.get("edges_geo", []),
+        "placement": state.get("placement", ""),
         "proc_state": state["proc_state"],
         "source_label": state["source_label"],
         "register_fail": state.get("register_fail", 0),

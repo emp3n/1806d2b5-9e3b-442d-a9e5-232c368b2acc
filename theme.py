@@ -199,7 +199,24 @@ __TOKEN_BLOCKS__
   padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
 }
-.rd-fact em { font-style: normal; margin-right: 6px; color: var(--muted); }
+.rd-fact em { font-style: normal; margin-right: 2px; color: var(--muted); }
+/* Local SVG flags: no network, no PNG decode, no layout shift. The origin flag
+   is a normal 4:3 chip; edge flags are intentionally smaller than the label. */
+.rd-flag-slot { display: inline-flex; align-items: center; min-width: 0; }
+.rd-flag {
+  width: 20px; height: 15px; flex: none; object-fit: cover;
+  border: 1px solid var(--border); border-radius: 3px; background: var(--raised);
+}
+.rd-flag--edge { width: 8px; height: 6px; border: 0; border-radius: 2px; }
+.rd-edge-flags { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.rd-geo, .rd-shard {
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 104px;
+}
+.rd-shard {
+  padding-left: 5px; border-left: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; max-width: 86px;
+}
 .rd-fact[data-tone="mem"] { background: var(--chip-tint); }
 
 /* ---------- measures ---------- */
