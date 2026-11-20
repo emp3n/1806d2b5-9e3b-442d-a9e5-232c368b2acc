@@ -224,6 +224,21 @@ def _flag_value(args: list[str], flag: str) -> str | None:
     return None
 
 
+def proc_age(pid: int) -> float:
+    """Seconds since the process started, from /proc (no ps, no psutil)."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        uptime = float(Path("/proc/uptime").read_text().split()[0])
+    except (OSError, ValueError, IndexError):
+        return 0.0
+    fields = stat.rsplit(")", 1)[-1].split()
+    try:
+        started = float(fields[19]) / os.sysconf("SC_CLK_TCK")  # field 22 overall
+    except (IndexError, ValueError, OSError):
+        return 0.0
+    return max(uptime - started, 0.0)
+
+
 def metrics_answers(port: int, timeout: float = 1.5) -> bool:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics",
@@ -321,7 +336,11 @@ def adopt_running_tunnel(feed_port: int, directory: Path | None = None,
     api_url = f"{public}/api/state"
     if not ready_connections(int(port)):
         return None
-    if verified and not feed_answers(api_url):
+    # A quick tunnel's public name answers only after the edge has routed it;
+    # that lag is normal for a young tunnel and must not be read as "dead".
+    # Only an old tunnel that still does not answer is worth replacing.
+    if (verified and proc_age(pid) > STUCK_AFTER
+            and not feed_answers(api_url)):
         return None
     return Tunnel(True, api_url=api_url, public_url=public, binary=args[0],
                   pid=pid, detail=f"reused running tunnel {public} (pid {pid})")
@@ -405,6 +424,9 @@ _cached: Tunnel | None = None
 # HTTPS round trip, but a page must not keep polling a tunnel that died either.
 CHECK_EVERY = 15.0
 
+# How long a registered tunnel may fail to answer before it is replaced.
+STUCK_AFTER = 180.0
+
 
 def reusable(tunnel: Tunnel) -> bool:
     """Is this tunnel still worth handing to the card?
@@ -419,10 +441,18 @@ def reusable(tunnel: Tunnel) -> bool:
     args = _cmdline(tunnel.pid)
     if not args or "cloudflared" not in os.path.basename(args[0]):
         return False
-    if tunnel.api_url and time.monotonic() - tunnel.checked_at > CHECK_EVERY:
-        if not feed_answers(tunnel.api_url):
-            return False
-        tunnel.checked_at = time.monotonic()
+    port = _flag_value(args, "--metrics") or ""
+    if not port.rsplit(":", 1)[-1].isdigit():
+        return False
+    if ready_connections(int(port.rsplit(":", 1)[-1])) < 1:
+        return False
+    # A young quick tunnel is allowed to 530 for a while; an old one that still
+    # does not answer is stuck and gets replaced instead of polled forever.
+    if tunnel.api_url and proc_age(tunnel.pid) > STUCK_AFTER:
+        if time.monotonic() - tunnel.checked_at > CHECK_EVERY:
+            if not feed_answers(tunnel.api_url):
+                return False
+            tunnel.checked_at = time.monotonic()
     return True
 
 
@@ -437,6 +467,12 @@ def retire_stale_tunnel(keep: int | None = None, directory: Path | None = None) 
     for pid in our_tunnels(directory):
         if keep is not None and pid == keep:
             continue
+        if keep is not None:
+            args = _cmdline(keep)
+            metrics = _flag_value(args, "--metrics") or ""
+            suffix = metrics.rsplit(":", 1)[-1]
+            if not suffix.isdigit() or ready_connections(int(suffix)) < 1:
+                return ""      # no healthy keeper: never tear down a survivor
         try:
             os.kill(pid, 15)  # SIGTERM
             stopped.append(pid)
