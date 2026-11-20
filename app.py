@@ -57,6 +57,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+print("card: app.py started", flush=True)
+
 params = st.query_params
 theme = str(params.get("theme", "dark")).lower()
 if theme not in ("light", "dark", "auto"):
@@ -118,6 +120,7 @@ if use_live:
     page = page_url()
     from bootstrap import on_streamlit_cloud
 
+    print(f"card: page={page!r} cloud={on_streamlit_cloud(page)}", flush=True)
     if not explicit and on_streamlit_cloud(page) and os.environ.get("CARD_TUNNEL", "on").lower() != "off":
         from bootstrap import ensure_tunnel
 
