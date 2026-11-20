@@ -98,11 +98,11 @@ def test_a_dead_feed_is_named_instead_of_frozen():
     """The phone bug: a refused fetch left the last numbers standing and said
     nothing, so a frozen panel looked exactly like a live one."""
     assert "function lose()" in SCRIPT
-    assert "'feed unreachable'" in SCRIPT
+    assert "'state unreachable'" in SCRIPT
     assert "card.setAttribute('data-feed', 'lost')" in SCRIPT
-    # the footer names the address that failed, which is how "127.0.0.1" on a
-    # phone stops being a mystery
-    assert "set('[data-source]', 'no feed · '" in SCRIPT
+    # the footer names the path that failed: it is a file this page's own
+    # server publishes, so a failure means the app under it is gone
+    assert "set('[data-source]', 'no state · '" in SCRIPT
     # and the old silent catch is gone
     assert "catch(function () {{ card.setAttribute('data-link', 'lost'); }})" not in SCRIPT
 
@@ -126,14 +126,29 @@ def test_a_phone_resumes_the_loop_when_it_comes_back():
 
 def test_the_stale_numbers_step_back():
     css = THEME.read_text()
-    assert '.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }' in css
+    assert '.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot),' in css
+    assert '.rd-card[data-feed="stalled"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }' in css
+
+
+def test_the_heartbeat_separates_stalled_from_live():
+    """A state file nobody rewrites leaves the last numbers looking live."""
+    assert "function beat(data)" in SCRIPT
+    assert "typeof data.ts !== 'number'" in SCRIPT
+    assert "RD_STALE" in SCRIPT and "card.setAttribute('data-feed', 'stalled')" in SCRIPT
+    assert "beat(data)" in SCRIPT.split("function beat(data)")[1], "beat() is never used"
+
+
+def test_the_poll_defeats_a_heuristic_cache():
+    """The static file has no Cache-Control, so a plain GET may be served from
+    the browser's heuristic cache and freeze the card for minutes."""
+    assert "RD_API + '?t=' + Date.now()" in SCRIPT
 
 
 def test_the_card_only_promises_a_feed_when_one_exists():
     from card import render
     from demo_data import build_state
 
-    live = render(build_state(0), api="http://127.0.0.1:8598/api/state", action_key="k")
+    live = render(build_state(0), state_url="/app/static/state.json")
     sample = render(build_state(0))
 
     def tag(html: str) -> str:
@@ -144,15 +159,22 @@ def test_the_card_only_promises_a_feed_when_one_exists():
     assert "data-feed" not in tag(sample)
 
 
-def test_stop_asks_twice_when_the_page_rides_the_tunnel():
+def test_stop_is_confirmed_in_the_shell_when_the_page_rides_the_tunnel():
     """Stopping the connector from a page that arrives over its tunnel closes
-    the page too: the second press is the point of no return, and it is
-    announced before anything is sent."""
-    assert "var RD_SEVER" in SCRIPT
-    assert "This page comes through this tunnel" in SCRIPT
-    arm = SCRIPT.index("RD_SEVER && !power.classList.contains('is-armed')")
-    send = SCRIPT.index("act(gone ? 'start' : 'stop'")
-    assert arm < send, "the second press must come after the warning, not instead of it"
-    assert "Click again" in SCRIPT
-    # and starting is never gated: it is the way back
-    assert "if (!gone) {" in SCRIPT
+    the page too. The buttons are real Streamlit widgets in app.py now (the
+    card owns no HTTP endpoint), so the confirmation lives there."""
+    shell = (CARD.parent / "app.py").read_text()
+    assert "served_through_tunnel" in shell
+    assert 'st.session_state.arm = "stop"' in shell
+    assert "This page travels through that tunnel" in shell
+    # the cancel path is a button, not a timeout: the operator decides
+    assert "Keep it running" in shell
+    # and the card itself keeps no second source of truth about the process
+    assert "RD_ACTION" not in SCRIPT and "X-RD-Action" not in SCRIPT
+
+
+def test_the_card_has_no_http_action_endpoint():
+    """One channel. The buttons act in the Streamlit process; the page only reads."""
+    assert "act(" not in SCRIPT
+    assert "POST" not in SCRIPT.upper().replace("POSTER", "")
+    assert "data-action=" not in CARD.read_text()

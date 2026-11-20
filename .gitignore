@@ -2,3 +2,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .temp/
+# the sampler rewrites this once a second; it is runtime state, not source
+static/state.json
+static/state.json.new
+# local secrets (the tunnel token belongs in the app's secrets on Cloud)
+.streamlit/secrets.toml

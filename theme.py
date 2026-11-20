@@ -195,8 +195,11 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .rd-card > :not(.rd-head):not(.rd-foot) { transition: opacity var(--fast); }
 .rd-card[data-run="stop"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }
 /* the feed stopped answering: the numbers are still true, they are just not
-   now, so they step back instead of passing for live ones */
-.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }
+   now, so they step back instead of passing for live ones. "stalled" is the
+   same promise for a state file that stopped being written while the page is
+   still open. */
+.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot),
+.rd-card[data-feed="stalled"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }
 
 .rd-head { display: flex; align-items: center; gap: 10px; }
 .rd-mark { width: 40px; height: 40px; flex: none; }
@@ -217,18 +220,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .rd-note[hidden] { display: none; }
 .rd-card[data-status="stop"] .rd-status { color: var(--muted); }
 
-.rd-verbs { display: flex; gap: 4px; }
-.rd-round {
-  position: relative; width: 34px; height: 34px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--raised); color: var(--muted);
-  transition: background-color var(--fast), color var(--fast);
-}
-.rd-round svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.rd-round:hover { background: var(--sunken); color: var(--text); }
-.rd-round[aria-pressed="true"] { color: var(--text); }
-.rd-round.is-armed { background: var(--crit); color: var(--card); }
-.rd-round.is-busy svg { animation: rd-spin 700ms linear infinite; }
+/* The card owns no buttons: Stop and Restart are Streamlit widgets, docked over
+   this header by app.py. What is left here is the tooltip that the path chip
+   still uses. */
 .rd-tip {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 4;
   padding: 4px 8px; border-radius: 8px; white-space: nowrap;
@@ -237,7 +231,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
   opacity: 0; transform: translateY(-4px);
   transition: opacity var(--fast), transform var(--fast);
 }
-.rd-round:hover .rd-tip, .rd-round:focus-visible .rd-tip,
 .rd-copy:hover .rd-tip, .rd-copy:focus-visible .rd-tip { opacity: 1; transform: none; }
 
 /* ---------- facts: the two chips, no dots ---------- */

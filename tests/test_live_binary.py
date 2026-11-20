@@ -1,13 +1,15 @@
 """The real thing: run cloudflared, read it back through the card's own code.
 
-These tests start the downloaded binary with a tunnel token, wait for its
-metrics endpoint, and then assert that every number the card shows can be taken
-from the process itself. They skip when the binary or the token file is absent,
-so the suite stays honest on a machine without them.
+These tests start the downloaded binary with the operator's tunnel token, wait
+for its metrics endpoint, and then assert that every number the card shows can
+be taken from the process itself.
 
-    CLOUDFLARED_BIN=/tmp/user/1000/opencode/cloudflared \\
-    CLOUDFLARED_TOKEN_FILE=/tmp/user/1000/opencode/cf-token \\
-    python3 -m pytest tests -q
+They are OFF by default, and deliberately so: a connector started here registers
+on the *operator's* named tunnel, and a second connector on one tunnel splits the
+real traffic between two copies of the app. Run them when the live connector is
+stopped (``./tools/connector.sh stop``), never while it is serving.
+
+    CARD_INTEGRATION=1 python3 -m pytest tests/test_live_binary.py -q
 """
 
 from __future__ import annotations
@@ -24,13 +26,18 @@ import urllib.request
 
 import pytest
 
+import bootstrap
 import live
-import server
+import statefeed
 
 BIN = os.environ.get("CLOUDFLARED_BIN") or shutil.which("cloudflared") or "/tmp/user/1000/opencode/cloudflared"
 TOKEN_FILE = os.environ.get("CLOUDFLARED_TOKEN_FILE") or "/tmp/user/1000/opencode/cf-token"
 
 pytestmark = pytest.mark.integration
+
+if os.environ.get("CARD_INTEGRATION") != "1":
+    pytest.skip("set CARD_INTEGRATION=1: these start a connector on the real tunnel",
+                allow_module_level=True)
 
 
 def free_port() -> int:
@@ -177,112 +184,37 @@ def test_the_token_stays_out_of_the_command_line_and_the_payload(connector, tmp_
     collector.sample(pid=pid)
     state = collector.state()
     assert token not in json.dumps(state)
-    assert token not in json.dumps(server.to_payload(state))
+    assert token not in json.dumps(statefeed.to_payload(state))
 
 
-def test_the_api_serves_the_running_connector(connector):
-    sampler = server.Sampler(interval=3600)
-    sampler.collector.sample(pid=connector["proc"].pid)
-    with sampler._lock:
-        sampler._payload = server.to_payload(sampler.collector.state())
-    httpd = server.serve(sampler, port=0)
+def test_the_state_file_carries_the_running_connector(connector, tmp_path):
+    """The card's channel is a file Streamlit serves, not a second port."""
+    collector = live.Collector(metrics_url=f"http://127.0.0.1:{connector['port']}")
+    collector.sample(pid=connector["proc"].pid)
+    payload = statefeed.to_payload(collector.state(), None, {
+        "ok": True, "mode": "named", "pid": collector.pid, "ready": 4,
+        "public": "https://streamlit.idealis.cc"})
+    payload["ts"] = 1.0
+    path = statefeed.write_state(payload, statefeed.state_path(tmp_path))
+    back = statefeed.read_state(path)
+    assert back["found"] is True
+    assert back["pid"] == connector["proc"].pid
+    assert back["status_text"].endswith("of 4 connections live")
+    assert back["path"].endswith("cloudflared")
+    assert back["tunnel"]["public"] == "https://streamlit.idealis.cc"
+
+
+def test_stop_really_stops_the_real_connector(tmp_path, real_binary):
+    """One verb, end to end: SIGTERM through bootstrap, and the pid is gone."""
+    process, port, _, _ = start_connector(tmp_path, name="stop")
     try:
-        request = urllib.request.Request(f"http://127.0.0.1:{httpd.server_address[1]}/api/state")
-        with urllib.request.urlopen(request, timeout=3) as response:
-            payload = json.loads(response.read())
-            assert response.headers["Access-Control-Allow-Origin"] == "*"
-        assert payload["found"] is True
-        assert payload["pid"] == connector["proc"].pid
-        assert payload["status_text"].endswith("of 4 connections live")
-        assert payload["path"].endswith("cloudflared")
-    finally:
-        httpd.shutdown()
-        httpd.server_close()
-
-
-def test_the_buttons_stop_and_start_the_real_connector(tmp_path, monkeypatch, real_binary):
-    """The panel's power button, end to end: SIGTERM, wait, relaunch the
-    recorded command line, and the new process registers again.
-
-    This host also runs the panel's own connector, so discovery is pinned off:
-    otherwise the sampler would adopt *that* one the moment ours stops and the
-    start would (correctly) refuse as "already running".
-    """
-    monkeypatch.setattr(live, "find_pid", lambda *args, **kwargs: None)
-    process, port, log, _ = start_connector(tmp_path, name="ctl")
-    sampler = server.Sampler(interval=3600)
-    # read this connector's own metrics port, not whatever is on the default one
-    sampler.collector.metrics_url = f"http://127.0.0.1:{port}"
-    sampler.collector.sample(pid=process.pid)
-    started_pid = None
-    try:
-        assert sampler.collector.launch and "--token-file" in sampler.collector.launch
-        stopped = sampler.supervisor.perform("stop")
-        assert stopped["ok"] is True and stopped["pid"] == process.pid
-        assert not server.alive(process.pid)
-        assert process.wait(timeout=10) is not None  # SIGTERM was enough
-
-        sampler.collector.launch = [
-            BIN, "tunnel",
-            "--metrics", f"127.0.0.1:{port}",
-            "--logfile", str(log),
-            "--loglevel", "info",
-            "run", "--token-file", TOKEN_FILE,
-        ]
-        started = sampler.supervisor.perform("start")
-        assert started["ok"] is True, started
-        started_pid = started["pid"]
-        assert server.alive(started_pid)
-
-        # it comes back all the way: the collector reads the new pid, metrics
-        # answer, and the version is the binary's own (not the "unknown" a
-        # process reports in its first second, before build_info is served)
-        wait_for(f"http://127.0.0.1:{port}/metrics")
-        ready = live.parse_ready(wait_for(f"http://127.0.0.1:{port}/ready"))
-        assert 0 <= ready["ready"] <= 4
-        deadline = time.monotonic() + 15
-        state = sampler.collector.state()
-        while state["version"] == "unknown" and time.monotonic() < deadline:
-            time.sleep(0.5)
-            sampler.collector.sample()
-            state = sampler.collector.state()
-        assert state["found"] is True
-        assert state["pid"] == started_pid
-        assert state["version"] == live.parse_metrics(
-            live._http(f"http://127.0.0.1:{port}/metrics") or ""
-        )["version"]
-        assert state["version"] != "unknown"
-    finally:
-        if started_pid and server.alive(started_pid):
-            os.kill(started_pid, 15)
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=10)
-
-
-def test_restart_in_one_step_replaces_the_pid(tmp_path, monkeypatch, real_binary):
-    monkeypatch.setattr(live, "find_pid", lambda *args, **kwargs: None)
-    process, port, log, _ = start_connector(tmp_path, name="rst")
-    sampler = server.Sampler(interval=3600)
-    sampler.collector.sample(pid=process.pid)
-    new_pid = None
-    try:
-        sampler.collector.launch = [
-            BIN, "tunnel",
-            "--metrics", f"127.0.0.1:{port}",
-            "--logfile", str(log),
-            "--loglevel", "info",
-            "run", "--token-file", TOKEN_FILE,
-        ]
-        result = sampler.supervisor.perform("restart")
+        assert bootstrap._proc_alive(process.pid) is True
+        result = bootstrap.stop_tunnel(process.pid, tmp_path)
         assert result["ok"] is True, result
-        new_pid = result["pid"]
-        assert result["stopped_pid"] == process.pid
-        assert new_pid != process.pid and server.alive(new_pid)
-        assert not server.alive(process.pid)
+        assert result["stopped"] == [process.pid]
+        assert bootstrap._proc_alive(process.pid) is False
+        assert process.wait(timeout=10) is not None
     finally:
-        if new_pid and server.alive(new_pid):
-            os.kill(new_pid, 15)
         if process.poll() is None:
             process.kill()
             process.wait(timeout=10)

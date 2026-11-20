@@ -427,8 +427,8 @@ def test_card_keys_exist_in_both_feeds(fake_proc, monkeypatch):
 
 def test_state_and_payload_never_carry_the_token(fake_proc, monkeypatch):
     """The collector reads cmdlines; a token passed with --token must not leak
-    into the API, the footer or the HTML."""
-    import server
+    into the state file, the footer or the HTML."""
+    import statefeed
 
     token = "eyJhIjogIjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwgInQiOiAidGVzdC10dW5uZWwiLCAicyI6ICJ0ZXN0In0"  # a token-shaped string, not the real one
     (fake_proc / "4242" / "cmdline").write_text(f"cloudflared\0tunnel\0run\0--token\0{token}\0")
@@ -436,7 +436,7 @@ def test_state_and_payload_never_carry_the_token(fake_proc, monkeypatch):
     collector = live.Collector(metrics_url="")
     collector.sample()
     state = collector.state()
-    payload = server.to_payload(state)
+    payload = statefeed.to_payload(state)
 
     import card
 
@@ -557,3 +557,15 @@ def test_a_tokenless_quick_tunnel_is_a_real_connector():
     ])
     # an unrelated cloudflared command is not a connector
     assert not live.is_tunnel_run(["cloudflared", "--version"])
+
+
+def test_metrics_url_follows_the_connectors_own_listener():
+    """bootstrap takes a free port when 20241 is held, so the sampler must read
+    the address from the cmdline instead of the default."""
+    assert live.metrics_url_for(
+        ["/x/cloudflared", "tunnel", "--url", "http://127.0.0.1:8598",
+         "--metrics", "127.0.0.1:39921"]) == "http://127.0.0.1:39921"
+    assert live.metrics_url_for(
+        ["/x/cloudflared", "tunnel", "--metrics=127.0.0.1:20241", "run"]) == \
+        "http://127.0.0.1:20241"
+    assert live.metrics_url_for(["/x/cloudflared", "tunnel", "run"]) is None

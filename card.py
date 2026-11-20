@@ -15,7 +15,6 @@ different budget.
 from __future__ import annotations
 
 import json
-from urllib.parse import urlsplit
 from typing import Any
 
 # the real Cloudflare mark (simple-icons, path unmodified), set on a brand plate
@@ -51,9 +50,6 @@ _ICONS = {
     "logs": '<path d="M3 5h1"/><path d="M3 12h1"/><path d="M3 19h1"/><path d="M8 5h1"/>'
             '<path d="M8 12h1"/><path d="M8 19h1"/><path d="M13 5h8"/><path d="M13 12h8"/>'
             '<path d="M13 19h8"/>',
-    "power": '<path d="M12 3.5v8.5"/><path d="M7.4 6.6a7.6 7.6 0 1 0 9.2 0"/>',
-    "restart": '<path d="M20 9V7a2 2 0 0 0-2-2h-6"/><path d="m15 2-3 3 3 3"/>'
-               '<path d="M20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>',
     "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>'
             '<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
 }
@@ -110,44 +106,19 @@ def measure(state: dict[str, Any], metric: str) -> str:
     </div>"""
 
 
-def tunnel_borne(api: str | None) -> bool:
-    """Is this page served over the connector's own tunnel?
-
-    A loopback page and a page opened by LAN IP reach the card directly, so
-    stopping the connector does not touch them. A public hostname almost
-    certainly is the tunnel — and then the power button is also the door it
-    closes behind itself: the page dies with the connector and can only be
-    started again from the host. The button therefore asks twice in that case.
-    """
-    if not api:
-        return False
-    host = (urlsplit(api).hostname or "").lower()
-    if not host or host == "localhost" or host == "::1" or host.startswith("127."):
-        return False
-    if host.endswith((".local", ".localhost", ".internal", ".home.arpa")):
-        return False
-    parts = host.split(".")
-    if len(parts) == 4 and all(part.isdigit() for part in parts):
-        private = host.startswith(("10.", "192.168.", "169.254.")) or any(
-            host.startswith(f"172.{n}.") for n in range(16, 32)
-        )
-        return not private
-    return "." in host
-
-
 def render(
     state: dict[str, Any],
     *,
     theme: str = "dark",
     view: str = "services",
-    api: str | None = None,
-    action_key: str | None = None,
+    state_url: str | None = None,
 ) -> str:
     """The console.
 
-    ``api`` is the address the *browser* polls, already resolved against the
-    page's own origin by ``app.py`` — never this host's loopback, which is what
-    froze the card on a phone.
+    ``state_url`` is the address the *browser* polls for the numbers, relative
+    to the page's own origin: Streamlit serves ``static/state.json`` at
+    ``/app/static/state.json``, so the same path works on localhost, on
+    ``*.streamlit.app`` and behind the operator's hostname.
     """
     host = state["host"]
     live_text = f'{state["live"]} of 4 connections live'
@@ -171,7 +142,7 @@ def render(
             "</section>"
         )
 
-    feed_attr = ' data-feed="ok"' if api else ""
+    feed_attr = ' data-feed="ok"' if state_url else ""
     card = f"""<article class="rd-card" data-run="run" data-status="{status_state}"{feed_attr}>
       <header class="rd-head">
         {mark()}
@@ -179,12 +150,6 @@ def render(
           <h1 id="rd-title">cloudflared</h1>
           <p class="rd-status" data-status-text>{live_text}</p>
           <p class="rd-note" data-note{"" if note else " hidden"} title="{note}">{note}</p>
-        </div>
-        <div class="rd-verbs">
-          <button type="button" class="rd-round" data-action="power" aria-pressed="true" aria-label="Stop service">
-            {icon("power")}<span class="rd-tip" aria-hidden="true">Stop service</span></button>
-          <button type="button" class="rd-round" data-action="restart" aria-label="Restart service">
-            {icon("restart")}<span class="rd-tip" aria-hidden="true">Restart</span></button>
         </div>
       </header>
 
@@ -260,13 +225,11 @@ def render(
   <script>
   var RD_SPARK = {spark_geo};
   var RD_LIVE = {json.dumps(live_text)};
-  var RD_API = {json.dumps(api)};
-  /* true when this page arrives over the public tunnel, i.e. the connector the
-     power button stops is also the thing carrying the page: stopping it closes
-     the door behind you. Then the button asks a second time. */
-  var RD_SEVER = {json.dumps(tunnel_borne(api))};
-  var RD_ACTION = RD_API ? RD_API.replace('/api/state', '/api/action') : null;
-  var RD_KEY = {json.dumps(action_key)};
+  var RD_API = {json.dumps(state_url)};
+  /* the heartbeat is written by the sampler thread once a second; a payload
+     whose stamp is older than this means the sampler stopped, not that the
+     numbers are still true */
+  var RD_STALE = 12;
   var FLOOR = 0.62;
   (function () {{
     var card = document.querySelector('.rd-card');
@@ -571,7 +534,22 @@ def render(
       }});
     }});
 
-    /* ---- the live poll: one payload a second, painted by the same frame loop ---- */
+    /* ---- the live poll: one payload a second, painted by the same frame loop ----
+       The payload carries the sampler's own timestamp. A file that stops being
+       rewritten (script asleep, thread dead, disk full) leaves the last numbers
+       on screen looking exactly like live ones; the stamp is what tells the two
+       apart. Clock skew between the container and the browser is a second or
+       two, so the threshold is generous. */
+    function beat(data) {{
+      if (!data || typeof data.ts !== 'number') return '';
+      var age = Math.round(Date.now() / 1000 - data.ts);
+      if (age <= RD_STALE) {{
+        if (card.getAttribute('data-feed') === 'stalled') card.setAttribute('data-feed', 'ok');
+        return '';
+      }}
+      card.setAttribute('data-feed', 'stalled');
+      return ' · stalled ' + age + 's';
+    }}
     function apply(data) {{
       /* an answer is an answer: whatever it says about the process, the feed
          itself is back, so the stale look comes off here and nowhere else */
@@ -581,27 +559,20 @@ def render(
            last flattering number */
         card.setAttribute('data-link', data ? 'gone' : 'lost');
         if (data) {{
-          var stopped = data.last_action && data.last_action.action === 'stop' && data.last_action.ok;
+          /* the intent file outlives this script process, last_action does not:
+             a reloaded page must still say who stopped it */
+          var intentOff = data.tunnel && data.tunnel.intent === 'off';
+          var stopped = intentOff
+            || (data.last_action && data.last_action.action === 'stop' && data.last_action.ok);
           set('[data-status-text]', stopped ? 'stopped by you' : 'no cloudflared process');
           var gone = document.querySelector('[data-note]');
           if (gone) {{ gone.hidden = true; gone.textContent = ''; }}
-          var off = document.querySelector('[data-action="power"]');
-          if (off) {{
-            off.setAttribute('aria-pressed', 'false');
-            off.setAttribute('aria-label', 'Start service');
-            off.querySelector('.rd-tip').textContent = 'Start service';
-          }}
           blank();
+          set('[data-source]', 'live · no cloudflared process' + beat(data));
         }}
         return;
       }}
       card.setAttribute('data-link', 'ok');
-      var on = document.querySelector('[data-action="power"]');
-      if (on && LIVE) {{
-        on.setAttribute('aria-pressed', 'true');
-        on.setAttribute('aria-label', 'Stop service');
-        on.querySelector('.rd-tip').textContent = 'Stop service';
-      }}
       card.setAttribute('data-status', data.status_state || 'down');
       set('[data-status-text]', data.status_text);
       var noteNode = document.querySelector('[data-note]');
@@ -616,7 +587,7 @@ def render(
       set('[data-uptime]', data.uptime);
       set('[data-version]', data.version);
       set('[data-path]', data.path);
-      set('[data-source]', data.source_label);
+      set('[data-source]', data.source_label + beat(data));
       var copyBtn = document.querySelector('[data-copy]');
       if (copyBtn && data.path) copyBtn.setAttribute('data-copy', data.path);
       sparks.forEach(function (spark) {{
@@ -640,10 +611,11 @@ def render(
     function lose() {{
       card.setAttribute('data-feed', 'lost');
       card.setAttribute('data-status', 'down');
-      set('[data-status-text]', 'feed unreachable');
-      /* the footer is the provenance line: name the address that failed, so
-         "127.0.0.1" on a phone explains itself */
-      set('[data-source]', 'no feed · ' + RD_API.replace(/^https?:\\/\\//, '').replace('/api/state', ''));
+      set('[data-status-text]', 'state unreachable');
+      /* the footer is the provenance line: name the path that failed. It is a
+         file this page's own server publishes, so a failure means the app (or
+         the tunnel under it) is gone, not that some other host refused. */
+      set('[data-source]', 'no state · ' + RD_API);
     }}
     function schedule(delay) {{
       if (beatTimer) window.clearTimeout(beatTimer);
@@ -656,7 +628,10 @@ def render(
       beatTimer = null;
       var ctl = window.AbortController ? new window.AbortController() : null;
       var cut = window.setTimeout(function () {{ if (ctl) ctl.abort(); }}, PATIENCE);
-      window.fetch(RD_API, {{cache: 'no-store', signal: ctl ? ctl.signal : undefined}})
+      /* the file has no Cache-Control header, so a heuristic cache may
+         serve a stale copy: a unique query keeps every poll a miss */
+      window.fetch(RD_API + '?t=' + Date.now(),
+                   {{cache: 'no-store', signal: ctl ? ctl.signal : undefined}})
         .then(function (reply) {{
           if (!reply.ok) throw new Error(String(reply.status));
           return reply.json();
@@ -679,31 +654,6 @@ def render(
         }});
     }}
 
-    /* ---- the two buttons, pointed at the process ----
-       The page cannot signal a pid; it asks the feed, which only ever touches
-       the pid it is already reading. X-RD-Action carries a key that exists in
-       this HTML and not in /api/state. */
-    function act(name, done) {{
-      if (!LIVE || !RD_ACTION) return;
-      card.setAttribute('data-ctl', 'busy');
-      window.fetch(RD_ACTION, {{
-        method: 'POST',
-        headers: {{'Content-Type': 'application/json', 'X-RD-Action': RD_KEY}},
-        body: JSON.stringify({{action: name}})
-      }})
-        .then(function (reply) {{ return reply.json(); }})
-        .then(function (result) {{
-          card.removeAttribute('data-ctl');
-          if (result && result.ok) {{ done(result); }}
-          else {{ say((result && result.error) || 'Action failed'); }}
-          poll();
-        }})
-        .catch(function () {{
-          card.removeAttribute('data-ctl');
-          say('API unreachable');
-          lose();
-        }});
-    }}
     if (LIVE) {{
       poll();
       document.addEventListener('visibilitychange', function () {{
@@ -740,87 +690,6 @@ def render(
       }} else {{
         say('Clipboard blocked');
       }}
-    }});
-
-    /* ---- start / stop ---- */
-    var power = document.querySelector('[data-action="power"]');
-    var status = document.querySelector('[data-status-text]');
-    var powerArm = null;
-    function disarm() {{
-      window.clearTimeout(powerArm);
-      powerArm = null;
-      power.classList.remove('is-armed');
-      var tip = power.querySelector('.rd-tip');
-      if (tip) tip.textContent = 'Stop service';
-    }}
-    power.addEventListener('click', function () {{
-      if (LIVE) {{
-        var gone = card.getAttribute('data-link') === 'gone';
-        if (!gone) {{
-          if (RD_SEVER && !power.classList.contains('is-armed')) {{
-            /* the tunnel this page travels through is the thing being stopped */
-            power.classList.add('is-armed');
-            power.querySelector('.rd-tip').textContent = 'Click again';
-            say('This page comes through this tunnel — again stops it, and the page goes with it');
-            powerArm = window.setTimeout(disarm, 4200);
-            return;
-          }}
-          disarm();
-        }}
-        say(gone ? 'Starting…' : 'Stopping…');
-        act(gone ? 'start' : 'stop', function (result) {{
-          say((gone ? 'Started · pid ' : 'Stopped · pid ') + result.pid);
-          if (!gone) set('[data-status-text]', 'stopped by you');
-        }});
-        return;
-      }}
-      var running = card.getAttribute('data-run') === 'run';
-      card.setAttribute('data-run', running ? 'stop' : 'run');
-      card.setAttribute('data-status', running ? 'stop' : {json.dumps(status_state)});
-      power.setAttribute('aria-pressed', String(!running));
-      power.setAttribute('aria-label', running ? 'Start service' : 'Stop service');
-      power.querySelector('.rd-tip').textContent = running ? 'Start service' : 'Stop service';
-      status.textContent = running ? 'stopped by you' : RD_LIVE;
-      say(running ? 'Stop queued' : 'Start queued');
-    }});
-
-    /* ---- restart: arm, then confirm ---- */
-    var restart = document.querySelector('[data-action="restart"]');
-    var armTimer = null;
-    restart.addEventListener('click', function () {{
-      if (restart.classList.contains('is-busy')) return;
-      if (!LIVE && card.getAttribute('data-run') !== 'run') return;
-      if (!restart.classList.contains('is-armed')) {{
-        restart.classList.add('is-armed');
-        restart.querySelector('.rd-tip').textContent = 'Click again';
-        armTimer = window.setTimeout(function () {{
-          restart.classList.remove('is-armed');
-          restart.querySelector('.rd-tip').textContent = 'Restart';
-        }}, 3200);
-        return;
-      }}
-      window.clearTimeout(armTimer);
-      restart.classList.add('is-busy');
-      restart.disabled = true;
-      if (LIVE) {{
-        say('Restarting…');
-        act('restart', function (result) {{
-          say('Restarted · pid ' + result.pid);
-          set('[data-status-text]', RD_LIVE);
-        }});
-        window.setTimeout(function () {{
-          restart.classList.remove('is-busy', 'is-armed');
-          restart.disabled = false;
-          restart.querySelector('.rd-tip').textContent = 'Restart';
-        }}, 900);
-        return;
-      }}
-      window.setTimeout(function () {{
-        restart.classList.remove('is-busy', 'is-armed');
-        restart.disabled = false;
-        restart.querySelector('.rd-tip').textContent = 'Restart';
-        say('Restart queued');
-      }}, 620);
     }});
 
     /* ---- fit a short window ----

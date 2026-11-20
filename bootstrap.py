@@ -1,20 +1,32 @@
-"""Download and run cloudflared for a deployed copy of the card.
+"""Run the operator's Cloudflare tunnel for the card — locally and in Cloud.
 
-The local lab has a connector, a feed on 8598 and a gateway on 8599 already
-running next to Streamlit. Streamlit Cloud has none of that: the page is served
-from ``<repo>.streamlit.app``, so the card cannot poll a loopback address and
-Streamlit Cloud does not proxy an arbitrary ``/api/state`` path.
+The route is fixed on Cloudflare's side::
 
-On ``*.streamlit.app`` this module therefore:
+    streamlit.idealis.cc  ->  tunnel  ->  http://localhost:8501
 
-1. downloads the cloudflared binary into ``.temp/`` (rewrite with CARD_RUNTIME),
-2. starts a *quick tunnel* (no token needed) aimed at the in-process feed,
-3. reads the public ``https://<id>.trycloudflare.com`` URL out of its log,
-4. hands that URL to the card as the explicit feed address.
+so the app has exactly one requirement: it must listen on 8501 and a connector
+must run on the same host. Both are true on Streamlit Community Cloud (its
+runner starts ``streamlit run main.py`` on 8501) and locally
+(``tools/serve.sh`` starts the same thing). This module is what puts a
+connector there:
 
-Nothing is written outside the runtime directory, every attempt is cached in
-one place, and a connector that dies is reported with its real exit code —
-including 255 — instead of leaving a page with silently frozen numbers.
+1. find the tunnel token — ``CLOUDFLARE_TUNNEL_TOKEN`` in Streamlit secrets or
+   the environment, else ``.temp/cf-token`` on disk; with no token at all it
+   falls back to a quick tunnel so the page is never dead on arrival;
+2. adopt the connector a previous script process already started instead of
+   starting a second one — the child outlives the script, and two connectors on
+   one named tunnel split the traffic between two copies of the app;
+3. start it with ``--token-file``, never ``--token``, so the secret never
+   appears in ``/proc/<pid>/cmdline`` or in a process listing;
+4. hand back a :class:`Tunnel` only after the edge reports at least one
+   *registered* connection. A process that is up is not a tunnel that works,
+   and a page that trusts the process is the "says it is running, nothing is
+   running" bug;
+5. stop, restart and describe the connector through the same probes the card
+   reads, so the buttons and the numbers can never disagree with reality.
+
+Nothing here writes outside the runtime directory (``.temp/`` by default,
+``CARD_RUNTIME`` overrides), and every failure carries the real log tail.
 """
 
 from __future__ import annotations
@@ -24,12 +36,13 @@ import os
 import platform
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import threading
 import time
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 VERSION = "2026.11.1"
@@ -43,50 +56,209 @@ TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 # port instead of dying with "bind: address already in use".
 METRICS_PORT = 20241
 
+# Where the card's numbers are served from. Streamlit serves ``./static/`` at
+# ``/app/static/`` (``server.enableStaticServing``), so this path is the same on
+# localhost, on ``*.streamlit.app`` and behind the operator's hostname.
+STATE_PATH = "/app/static/state.json"
 
-def in_cloud_runtime() -> bool:
-    """Community Cloud mounts the app at /mount/src/<repo> and does not give
-    st.context.url to the script until a session exists. Checking both makes
-    the tunnel bootstrap reliable on the very first visit."""
-    if os.environ.get("CARD_TUNNEL", "").lower() == "on":
-        return True
-    return Path("/mount/src").is_dir()
+# The operator's own hostname, i.e. the public hostname the tunnel carries.
+DEFAULT_HOSTNAME = "streamlit.idealis.cc"
 
+# How long a registered tunnel may fail to answer before it is replaced.
+STUCK_AFTER = 180.0
+# A cached tunnel is re-probed at most this often: a rerun must not pay a round
+# trip, but the page must not keep polling a tunnel that died either.
+CHECK_EVERY = 15.0
 
-def on_streamlit_cloud(url: str | None) -> bool:
-    """A Streamlit Cloud page cannot proxy /api/state to our in-process feed.
-
-    There the app opens a quick tunnel to the feed; a page served from a
-    hostname we control keeps using the gateway on its own origin.
-    """
-    from urllib.parse import urlsplit
-
-    try:
-        host = (urlsplit(url).hostname or "").lower() if url else ""
-    except ValueError:
-        return False
-    return host.endswith(".streamlit.app")
+# Secrets may arrive as a root-level secret (also injected as an env var) under
+# any of these names; the first hit wins.
+TOKEN_KEYS = ("CLOUDFLARE_TUNNEL_TOKEN", "CARD_TUNNEL_TOKEN")
+HOST_KEYS = ("CLOUDFLARE_TUNNEL_HOSTNAME", "CARD_TUNNEL_HOSTNAME")
 
 
 @dataclass
 class Tunnel:
+    """What one connector actually is, as far as the probes can tell."""
+
     ok: bool
-    api_url: str | None = None
     public_url: str | None = None
-    binary: str | None = None
+    hostname: str | None = None
     pid: int | None = None
+    binary: str | None = None
+    mode: str = "named"            # "named" | "quick" | "none"
+    metrics: int | None = None
     detail: str = ""
-    # when the public URL last answered; the cache re-probes at most this often
+    token_source: str = ""
+    # when the public name last answered; the cache re-probes at most this often
     checked_at: float = 0.0
+    extra: list[int] = field(default_factory=list)
+
+    @property
+    def state_url(self) -> str | None:
+        """The address the *browser* polls: same origin, Streamlit-served."""
+        return f"{self.public_url}{STATE_PATH}" if self.public_url else None
 
     @property
     def message(self) -> str:
-        return self.detail if not self.ok else f"tunnel {self.public_url} (pid {self.pid})"
+        if not self.ok:
+            return self.detail or "no tunnel"
+        return (f"{self.mode} tunnel {self.public_url} "
+                f"(pid {self.pid}, metrics {self.metrics})")
 
 
+# --------------------------------------------------------------- settings
+def _secret(key: str) -> str | None:
+    """One root-level key from Streamlit secrets, if there is a secrets file.
+
+    ``st.secrets`` is where Cloud keeps the tunnel token; outside a script run
+    (the CLI tools, the tests) it may raise or be empty, which is not an error.
+    """
+    try:  # streamlit is optional for the CLI tools and the tests
+        import streamlit as st
+
+        value = st.secrets.get(key)
+        if value:
+            return str(value)
+    except Exception:  # noqa: BLE001 - no secrets.toml, no script run, no streamlit
+        pass
+    return None
+
+
+def _setting(key: str) -> str | None:
+    """Secrets first, then the environment: Cloud injects the same key twice."""
+    return _secret(key) or os.environ.get(key) or None
+
+
+def _lookup(key: str, settings=None) -> str | None:
+    """Secrets (or the given mapping) win, the environment is the second source.
+
+    ``settings`` exists so a test can describe "this app's secrets" exactly;
+    the environment is still consulted, because a local run exports the same
+    key and the operator expects it to be found.
+    """
+    value = None
+    if settings is not None:
+        try:
+            value = settings.get(key)
+        except AttributeError:
+            value = None
+    else:
+        value = _secret(key)
+    return str(value) if value else (os.environ.get(key) or None)
+
+
+def token_files() -> list[Path]:
+    """Where a token is allowed to live on disk, in preference order."""
+    paths: list[Path] = []
+    explicit = os.environ.get("CARD_TOKEN_FILE") or os.environ.get("CLOUDFLARED_TOKEN_FILE")
+    if explicit:
+        paths.append(Path(explicit).expanduser())
+    paths.append(runtime_dir() / "cf-token")
+    return paths
+
+
+def intent_path(directory: Path | None = None) -> Path:
+    return (directory or runtime_dir()) / "tunnel.intent"
+
+
+def desired_state(directory: Path | None = None) -> str:
+    """What the operator last asked for: ``"on"`` (default) or ``"off"``.
+
+    A stop button that a rerun undoes is not a stop button: every Streamlit
+    interaction reruns the script, and ``ensure_tunnel`` runs on every script
+    run, so without a remembered intent the connector came back a second after
+    it was stopped. The file lives in the runtime directory, so it survives a
+    rerun, a reloaded page and a rebooted script process — and disappears with
+    the container, which is the right default (a redeploy brings the tunnel
+    back instead of leaving the site dark).
+    """
+    try:
+        return "off" if intent_path(directory).read_text().strip() == "off" else "on"
+    except OSError:
+        return "on"
+
+
+def set_desired(state: str, directory: Path | None = None) -> str:
+    """Remember one of the two verbs. Anything else is refused."""
+    if state not in ("on", "off"):
+        raise ValueError(f"desired state must be 'on' or 'off', not {state!r}")
+    path = intent_path(directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(state + "\n", encoding="utf-8")
+    return state
+
+
+def tunnel_token(settings=None) -> tuple[str | None, str]:
+    """The tunnel token and where it came from; ``(None, reason)`` without one.
+
+    A token must never be printed, logged or put in a dataclass field: the
+    returned text is only ever used to write a ``600`` file or to call
+    cloudflared.
+    """
+    for key in TOKEN_KEYS:
+        value = _lookup(key, settings)
+        if value:
+            return value.strip(), f"secret {key}"
+    for path in token_files():
+        try:
+            value = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if value:
+            return value, f"file {path}"
+    return None, ("no tunnel token: set CLOUDFLARE_TUNNEL_TOKEN in the app secrets "
+                  f"(or put one in {token_files()[-1]})")
+
+
+def public_hostname(settings=None) -> str:
+    """The hostname the operator's tunnel is routed to (no scheme, no slash)."""
+    raw = ""
+    for key in HOST_KEYS:
+        raw = _lookup(key, settings) or ""
+        if raw:
+            break
+    raw = raw or DEFAULT_HOSTNAME
+    raw = raw.strip().removeprefix("https://").removeprefix("http://").strip("/")
+    return raw
+
+
+def ingress_port(settings=None) -> int:
+    """The port the Cloudflare route points at (dashboard-side, so a constant)."""
+    raw = _lookup("CLOUDFLARE_TUNNEL_INGRESS_PORT", settings) or "8501"
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 8501
+
+
+def write_token_file(token: str, directory: Path | None = None) -> Path:
+    """Put the token on disk with ``600`` rights, and nowhere else.
+
+    ``--token-file`` keeps the secret out of argv; the file is rewritten on each
+    start so a rotated token cannot be shadowed by an old copy.
+    """
+    directory = directory or runtime_dir()
+    path = directory / "cf-token"
+    directory.mkdir(parents=True, exist_ok=True)
+    previous = None
+    try:
+        previous = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if previous != token.strip():
+        partial = directory / "cf-token.new"
+        fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            out.write(token.strip() + "\n")
+        os.replace(partial, path)
+    else:
+        path.chmod(0o600)
+    return path
+
+
+# --------------------------------------------------------------- the binary
 def runtime_dir() -> Path:
-    """Where binaries and logs live. ``.temp/`` in the app's directory by
-    default, exactly the scratch folder the operator asked for."""
+    """Where binaries, logs and the token live. ``.temp/`` in the app folder."""
     override = os.environ.get("CARD_RUNTIME")
     if override:
         path = Path(override).expanduser()
@@ -154,9 +326,10 @@ def download(directory: Path | None = None, version: str = VERSION,
 
 def version_of(binary: Path) -> str:
     result = subprocess.run([str(binary), "--version"], capture_output=True,
-                            text=True, timeout=15)
+                           text=True, timeout=15)
     if result.returncode != 0:
-        raise RuntimeError(f"cloudflared --version exited {result.returncode}: {result.stderr[:200]}")
+        raise RuntimeError(
+            f"cloudflared --version exited {result.returncode}: {result.stderr[:200]}")
     return (result.stdout + result.stderr).strip().splitlines()[0]
 
 
@@ -168,6 +341,7 @@ def _log_tail(path: Path, count: int = 25) -> str:
     return "\n".join(lines[-count:])
 
 
+# --------------------------------------------------------------- /proc probes
 def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
     """Can something bind ``port`` right now? Used before handing it to
     cloudflared, whose failure mode is an immediate exit with code 255."""
@@ -184,9 +358,8 @@ def pick_metrics_port(preferred: int = METRICS_PORT) -> int:
     """The preferred port, or any free one when a previous connector holds it.
 
     Streamlit Cloud reboots the script process without killing the connector it
-    started, so 20241 is routinely still bound; starting a second cloudflared
-    on it exits with `listen tcp 127.0.0.1:20241: bind: address already in use`
-    and the card reports a dead tunnel while a working one is right there.
+    started, so 20241 is routinely still bound; starting a second cloudflared on
+    it exits with `listen tcp 127.0.0.1:20241: bind: address already in use`.
     """
     if port_is_free(preferred):
         return preferred
@@ -195,11 +368,28 @@ def pick_metrics_port(preferred: int = METRICS_PORT) -> int:
         return int(probe.getsockname()[1])
 
 
+def _proc_state(pid: int) -> str | None:
+    """The process state letter from /proc/<pid>/stat, or None when gone."""
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    fields = raw.rsplit(")", 1)[-1].split()
+    return fields[0] if fields else None
+
+
 def _proc_alive(pid: int) -> bool:
-    if pid <= 0:
+    """Alive *and doing something*.
+
+    A child that exited but was not reaped by its parent lingers in /proc as a
+    zombie. Treating a zombie as running is exactly how the card ended up
+    claiming a connector that no longer existed, so "Z" (and "X") count as gone.
+    """
+    if not pid or pid <= 0:
         return False
     if Path("/proc").is_dir():
-        return Path(f"/proc/{pid}").exists()
+        state = _proc_state(pid)
+        return state is not None and state not in ("Z", "X")
     try:  # pragma: no cover - non-POSIX fallback
         os.kill(pid, 0)
     except OSError:
@@ -251,10 +441,10 @@ def metrics_answers(port: int, timeout: float = 1.5) -> bool:
 def ready_connections(port: int, timeout: float = 1.5) -> int:
     """How many edge connections this connector has registered right now.
 
-    A quick tunnel prints its URL *before* it is registered; a browser that
-    polls in that window (or polls a name whose connection died) gets
-    Cloudflare's 1033 "tunnel not connected" page while the process looks
-    perfectly healthy. Readiness is the only honest signal.
+    A tunnel prints its URL *before* it is registered; a browser that polls in
+    that window (or polls a name whose connection died) gets Cloudflare's 1033
+    "tunnel not connected" page while the process looks perfectly healthy.
+    Readiness is the only honest signal, and it is what "running" means here.
     """
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/ready",
@@ -266,7 +456,12 @@ def ready_connections(port: int, timeout: float = 1.5) -> int:
 
 
 def our_tunnels(directory: Path | None = None) -> list[int]:
-    """Every cloudflared this app started, from any script generation."""
+    """Every cloudflared this app started, from any script generation.
+
+    The binary's directory is the identity: the app keeps its own copy of
+    cloudflared in the runtime directory, so a cloudflared someone else started
+    (another app, another tunnel, a hand-run debug session) is never touched.
+    """
     directory = (directory or runtime_dir()).resolve()
     found: list[int] = []
     proc = Path("/proc")
@@ -275,7 +470,8 @@ def our_tunnels(directory: Path | None = None) -> list[int]:
     for entry in proc.iterdir():
         if not entry.name.isdigit():
             continue
-        args = _cmdline(int(entry.name))
+        pid = int(entry.name)
+        args = _cmdline(pid)
         if not args or "tunnel" not in args:
             continue
         try:
@@ -283,81 +479,139 @@ def our_tunnels(directory: Path | None = None) -> list[int]:
                 continue
         except OSError:
             continue
-        if "cloudflared" in os.path.basename(args[0]):
-            found.append(int(entry.name))
+        if "cloudflared" in os.path.basename(args[0]) and _proc_alive(pid):
+            found.append(pid)
     return sorted(found)
 
 
-def feed_answers(url: str, timeout: float = 4.0) -> bool:
-    """Does the public tunnel really serve the feed right now?"""
+def public_answers(hostname: str, timeout: float = 5.0) -> bool:
+    """Does the operator's hostname really reach this app right now?
+
+    ``/_stcore/health`` is Streamlit's own endpoint: "ok" means DNS, the edge,
+    the tunnel and the app all agree. Nothing in this app answers that path by
+    accident, which is why it is the end-to-end check.
+    """
+    host = hostname.removeprefix("https://").removeprefix("http://").strip("/")
     try:
-        with urllib.request.urlopen(url.rstrip("/") + "/api/state",
+        with urllib.request.urlopen(f"https://{host}/_stcore/health",
                                     timeout=timeout) as reply:
-            return reply.status == 200 and b"{" in reply.read(256)
+            return reply.status == 200 and reply.read(16).strip() == b"ok"
+    except Exception:  # noqa: BLE001 - an unreachable hostname is a normal answer
+        return False
+
+
+def state_answers(url: str, timeout: float = 5.0) -> bool:
+    """Does the public hostname serve the card's numbers (not some HTML)?"""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as reply:
+            body = reply.read(512)
+        return reply.status == 200 and b"{" in body
     except Exception:  # noqa: BLE001 - a dead tunnel is a normal answer here
         return False
 
 
-def adopt_running_tunnel(feed_port: int, directory: Path | None = None,
-                         verified: bool = True) -> Tunnel | None:
-    """Reuse the connector a previous Streamlit process already started.
+# --------------------------------------------------------------- the connector
+def _tail_hint(tail: str) -> str:
+    """Turn cloudflared's failure modes into a sentence the operator can act on."""
+    if "Invalid tunnel secret" in tail or "Unauthorized" in tail:
+        return ("the token was rejected (Invalid tunnel secret) — the secret is "
+                "wrong, revoked, or belongs to another tunnel")
+    if "address already in use" in tail:
+        return "the metrics port is taken — the connector would need a free one"
+    if "Cannot determine default configuration path" in tail:
+        return ""
+    return ""
 
-    A reboot of the script (or a redeploy) leaves the child cloudflared alive
-    and still tunnelling to ``127.0.0.1:<feed_port>`` inside the same container:
-    the pidfile, the log and the metrics listener all survive. Starting a
-    second connector is both unnecessary and the exact thing that fails, so the
-    new process reads the old one instead — same pid, same public URL.
+
+_child_procs: list[subprocess.Popen] = []
+
+
+def _reap() -> None:
+    """Collect our own exited children: an unreaped child stays a zombie."""
+    for proc in list(_child_procs):
+        if proc.poll() is not None:
+            _child_procs.remove(proc)
+
+
+def _spawn(command: list[str], runner=None) -> subprocess.Popen:
+    launch = runner or subprocess.Popen
+    proc = launch(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                  stdin=subprocess.DEVNULL, start_new_session=True)
+    _child_procs.append(proc)
+    return proc
+
+
+def _wait_ready(proc, metrics: int, log: Path, wait_s: float) -> tuple[bool, str]:
+    """Block until the edge registers a connection, or say why it never did."""
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        if ready_connections(metrics) >= 1:
+            return True, ""
+        if proc.poll() is not None:
+            tail = _log_tail(log)
+            hint = _tail_hint(tail)
+            return False, (f"cloudflared exited with code {proc.returncode}"
+                           + (f": {hint}" if hint else "")
+                           + (f"\n{tail[-900:]}" if tail else ""))
+        time.sleep(0.3)
+    # It is running but not registered: say so, do not pretend it works.
+    return False, (f"cloudflared did not register a connection in {wait_s:g}s "
+                   f"(pid {proc.pid}, metrics {metrics})\n{_log_tail(log)[-700:]}")
+
+
+def start_named_tunnel(binary: Path, port: int, token: str,
+                       directory: Path | None = None, wait_s: float = 30.0,
+                       runner=None, metrics_port: int | None = None,
+                       token_source: str = "secret") -> Tunnel:
+    """``cloudflared tunnel run --token-file`` against the operator's tunnel.
+
+    The public hostname comes from the dashboard route, not from the log: a
+    named tunnel prints nothing about its hostname. What is verified here is the
+    half that can fail — registration on the edge.
     """
     directory = directory or runtime_dir()
+    log = directory / "cf.log"
     pidfile = directory / "cf.pid"
+    metrics = metrics_port or pick_metrics_port()
+    token_path = write_token_file(token, directory)
+    host = public_hostname()
+    command = [
+        str(binary), "tunnel",
+        "--metrics", f"127.0.0.1:{metrics}",
+        "--logfile", str(log),
+        "--pidfile", str(pidfile),
+        "--loglevel", "info",
+        "run", "--token-file", str(token_path),
+    ]
+    print(f"cloudflared: named tunnel -> {host} (ingress localhost:{port})", flush=True)
     try:
-        pid = int(pidfile.read_text().strip())
-    except (OSError, ValueError):
-        return None
-    if not _proc_alive(pid):
-        return None
-    args = _cmdline(pid)
-    if not args or "cloudflared" not in os.path.basename(args[0]):
-        return None
-    if "tunnel" not in args:
-        return None
-    target = _flag_value(args, "--url") or ""
-    if f":{feed_port}" not in target:
-        return None
-    metrics = _flag_value(args, "--metrics") or ""
-    port = metrics.rsplit(":", 1)[-1]
-    if not port.isdigit() or not metrics_answers(int(port)):
-        return None
-    log = Path(_flag_value(args, "--logfile") or (directory / "cf.log"))
-    found = TUNNEL_RE.findall(_log_tail(log, 400))
-    if not found:
-        return None
-    public = found[-1]
-    api_url = f"{public}/api/state"
-    if not ready_connections(int(port)):
-        return None
-    # A quick tunnel's public name answers only after the edge has routed it;
-    # that lag is normal for a young tunnel and must not be read as "dead".
-    # Only an old tunnel that still does not answer is worth replacing.
-    if (verified and proc_age(pid) > STUCK_AFTER
-            and not feed_answers(api_url)):
-        return None
-    return Tunnel(True, api_url=api_url, public_url=public, binary=args[0],
-                  pid=pid, detail=f"reused running tunnel {public} (pid {pid})")
+        proc = _spawn(command, runner)
+    except OSError as exc:
+        return Tunnel(False, mode="named", detail=f"cannot start cloudflared: {exc}",
+                      token_source=token_source)
+    ok, why = _wait_ready(proc, metrics, log, wait_s)
+    if not ok:
+        return Tunnel(False, hostname=host, binary=str(binary), mode="named",
+                      pid=proc.pid, metrics=metrics, detail=why,
+                      token_source=token_source)
+    ready = ready_connections(metrics)
+    detail = f"named tunnel {host} (pid {proc.pid}, {ready} connections)"
+    if port != ingress_port():
+        detail += (f" — WARNING: the dashboard route points at localhost:"
+                   f"{ingress_port()}, but the app listens on {port}")
+    return Tunnel(True, public_url=f"https://{host}", hostname=host, pid=proc.pid,
+                  binary=str(binary), mode="named", metrics=metrics, detail=detail,
+                  token_source=token_source, checked_at=time.monotonic())
 
 
-def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = None,
+def start_quick_tunnel(binary: Path, port: int, directory: Path | None = None,
                        wait_s: float = 20.0, runner=None,
                        metrics_port: int | None = None) -> Tunnel:
-    """Run ``cloudflared tunnel --url http://127.0.0.1:<feed_port>``.
+    """``cloudflared tunnel --url http://127.0.0.1:<port>``, no account needed.
 
-    A quick tunnel needs no token, so a fresh Streamlit Cloud deployment works
-    without any secret. The public URL is printed in the log; that is what the
-    card polls. A process that exits early is reported with its exit code.
-
-    The metrics listener takes the preferred port only while it is free: a
-    connector left over from the previous script process still owns 20241, and
-    binding it twice is what made the "second" tunnel die instantly.
+    This is the fallback when no token is configured (and what CI or a reviewer
+    without the operator's secret gets). The public URL is read out of the log,
+    then waited on until the edge registers it.
     """
     directory = directory or runtime_dir()
     log = directory / "cf.log"
@@ -365,19 +619,17 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
     metrics = metrics_port or pick_metrics_port()
     command = [
         str(binary), "tunnel",
-        "--url", f"http://127.0.0.1:{feed_port}",
+        "--url", f"http://127.0.0.1:{port}",
         "--metrics", f"127.0.0.1:{metrics}",
         "--logfile", str(log),
         "--pidfile", str(pidfile),
         "--loglevel", "info",
     ]
-    print(f"cloudflared: quick tunnel -> 127.0.0.1:{feed_port}", flush=True)
-    launch = runner or subprocess.Popen
+    print(f"cloudflared: quick tunnel -> 127.0.0.1:{port}", flush=True)
     try:
-        proc = launch(command, stdout=subprocess.DEVNULL,
-                      stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        proc = _spawn(command, runner)
     except OSError as exc:
-        return Tunnel(False, detail=f"cannot start cloudflared: {exc}")
+        return Tunnel(False, mode="quick", detail=f"cannot start cloudflared: {exc}")
 
     deadline = time.monotonic() + wait_s
     found = None
@@ -385,12 +637,11 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
         code = proc.poll()
         if code is not None:
             tail = _log_tail(log)
-            hint = " (already running? duplicate tunnel? no outbound network?)" if code == 255 else ""
-            return Tunnel(False, detail=(
-                f"cloudflared exited with code {code}{hint}\n{tail[-900:]}"
-            ))
-        text = _log_tail(log, 200)
-        match = TUNNEL_RE.search(text)
+            hint = " (already running? duplicate tunnel? no outbound network?)" \
+                if code == 255 else ""
+            return Tunnel(False, mode="quick", detail=(
+                f"cloudflared exited with code {code}{hint}\n{tail[-900:]}"))
+        match = TUNNEL_RE.search(_log_tail(log, 200))
         if match:
             found = match.group(0)
             break
@@ -398,105 +649,257 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
 
     if not found:
         proc.terminate()
-        return Tunnel(False, detail=(
-            f"no tunnel URL in {log} after {wait_s:g}s\n{_log_tail(log)[-900:]}"
-        ))
-    # A URL is not a connection. The name is registered before the edge accepts
-    # traffic, and a page that polls in that window shows Cloudflare's 1033
-    # "tunnel not connected" while the card already claims a feed address.
-    deadline = time.monotonic() + min(wait_s, 10.0)
+        return Tunnel(False, mode="quick", detail=(
+            f"no tunnel URL in {log} after {wait_s:g}s\n{_log_tail(log)[-900:]}"))
+
+    # A URL is not a connection: the name is printed before the edge accepts
+    # traffic, and a page that polls in that window shows Cloudflare's 1033 page.
+    ok, why = _wait_ready(proc, metrics, log, min(wait_s, 10.0))
+    if not ok:
+        return Tunnel(False, public_url=found, mode="quick", pid=proc.pid,
+                      binary=str(binary), metrics=metrics, detail=why)
+    return Tunnel(True, public_url=found, hostname=found.removeprefix("https://"),
+                  pid=proc.pid, binary=str(binary), mode="quick", metrics=metrics,
+                  detail=f"quick tunnel {found} (pid {proc.pid})",
+                  checked_at=time.monotonic())
+
+
+def _describe(pid: int, directory: Path | None = None) -> dict:
+    """Everything the probes can say about one connector process."""
+    args = _cmdline(pid)
+    metrics_text = _flag_value(args, "--metrics") or ""
+    suffix = metrics_text.rsplit(":", 1)[-1]
+    metrics = int(suffix) if suffix.isdigit() else None
+    ready = ready_connections(metrics) if metrics else 0
+    mode = "quick" if "--url" in args else "named"
+    public = None
+    if mode == "quick":
+        log = Path(_flag_value(args, "--logfile") or (directory or runtime_dir()) / "cf.log")
+        found = TUNNEL_RE.findall(_log_tail(log, 400))
+        public = found[-1] if found else None
+    else:
+        public = f"https://{public_hostname()}"
+    return {
+        "pid": pid,
+        "mode": mode,
+        "metrics": metrics,
+        "ready": ready,
+        "public": public,
+        "age": round(proc_age(pid), 1),
+        "target": _flag_value(args, "--url") or "",
+    }
+
+
+def tunnel_status(port: int | None = None,
+                  directory: Path | None = None) -> dict:
+    """The connector this app owns, as facts rather than as a memory.
+
+    Used by the sampler (every second, so the card cannot drift from reality),
+    by the buttons and by ``tools/connector.sh status``.
+    """
+    directory = directory or runtime_dir()
+    pids = our_tunnels(directory)
+    intent = desired_state(directory)
+    base = {
+        "ok": False, "mode": "none", "pid": None, "ready": 0, "metrics": None,
+        "public": None, "age": 0.0, "target": "", "extra": [],
+        "ingress": ingress_port(), "port": port, "intent": intent,
+        "detail": ("stopped by the operator" if intent == "off"
+                   else "no connector of ours is running"),
+    }
+    if not pids:
+        return base
+    described = [_describe(pid, directory) for pid in pids]
+    # a registered connector beats a young one, and a young one beats an old
+    described.sort(key=lambda item: (item["ready"] > 0, -item["age"]), reverse=True)
+    best = described[0]
+    best = dict(best)
+    best["ok"] = best["ready"] > 0
+    best["extra"] = [item["pid"] for item in described[1:]]
+    best["ingress"] = ingress_port()
+    best["port"] = port
+    best["intent"] = intent
+    if not best["ok"]:
+        best["detail"] = (f"connector pid {best['pid']} is not registered with the "
+                          f"edge ({best['mode']} tunnel)")
+    else:
+        best["detail"] = (f"{best['mode']} tunnel {best['public']} "
+                          f"(pid {best['pid']}, {best['ready']} connections)")
+    if best["extra"]:
+        best["detail"] += f" — plus {len(best['extra'])} extra connector(s)"
+    return best
+
+
+def adopt_running_tunnel(port: int, directory: Path | None = None,
+                         verified: bool = True) -> Tunnel | None:
+    """Reuse the connector a previous script process already started.
+
+    A reboot of the script (or a redeploy) leaves the child cloudflared alive:
+    the pidfile, the log and the metrics listener all survive. Starting a second
+    connector is unnecessary on a named tunnel and actively harmful — the edge
+    splits traffic between them — so the new process reads the old one instead.
+    """
+    directory = directory or runtime_dir()
+    status = tunnel_status(port, directory)
+    pid = status.get("pid")
+    if not pid or status["ready"] < 1:
+        return None
+    if not status.get("public"):
+        return None
+    # An old connector that never answers the public hostname is stuck and gets
+    # replaced; a young one is allowed to need a few seconds to be routed.
+    if verified and proc_age(pid) > STUCK_AFTER and not public_answers(status["public"]):
+        return None
+    return Tunnel(
+        True, public_url=status["public"],
+        hostname=(status["public"] or "").removeprefix("https://"),
+        pid=pid, binary=(_cmdline(pid) or [None])[0], mode=status["mode"],
+        metrics=status["metrics"],
+        detail=f"reused running {status['mode']} tunnel {status['public']} (pid {pid})",
+        token_source=tunnel_token()[1], checked_at=time.monotonic(),
+        extra=status.get("extra", []),
+    )
+
+
+def retire_stale_tunnel(keep: int | None = None, directory: Path | None = None) -> str:
+    """Stop every connector of ours except the one the card will use.
+
+    Two generations racing at boot each start a cloudflared. On a named tunnel
+    the loser does not die — it registers too, and the edge then routes half the
+    requests to a copy of the app that may be stale or gone. One app, one
+    connector.
+    """
+    pids = [pid for pid in our_tunnels(directory) if keep is None or pid != keep]
+    if keep is not None:
+        args = _cmdline(keep)
+        metrics = _flag_value(args, "--metrics") or ""
+        suffix = metrics.rsplit(":", 1)[-1]
+        if not suffix.isdigit() or ready_connections(int(suffix)) < 1:
+            return ""      # no healthy keeper: never tear down a survivor
+    if not pids:
+        return ""
+    result = stop_tunnel(pids, directory)
+    return f"retired connector(s) {result['stopped']}" if result["stopped"] else ""
+
+
+def stop_tunnel(pids: list[int] | int | None = None,
+                directory: Path | None = None, grace: float = 5.0) -> dict:
+    """SIGTERM, wait, SIGKILL — and report what is *actually* gone.
+
+    The pidfile is cleared as well: a stale pid there is what makes a page claim
+    a connector that does not exist.
+    """
+    directory = directory or runtime_dir()
+    if pids is None:
+        targets = our_tunnels(directory)
+    elif isinstance(pids, int):
+        targets = [pids]
+    else:
+        targets = list(pids)
+    stopped: list[int] = []
+    for pid in targets:
+        if not _proc_alive(pid):
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+            stopped.append(pid)
+        except OSError:
+            continue
+    deadline = time.monotonic() + grace
+    while time.monotonic() < deadline and any(_proc_alive(pid) for pid in stopped):
+        time.sleep(0.1)
+    for pid in list(stopped):
+        if _proc_alive(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    # SIGKILL is not instant: the process is dead a moment later, and checking
+    # the same microsecond made a successful stop report "survived SIGKILL".
+    deadline = time.monotonic() + 3.0
     while time.monotonic() < deadline:
-        if ready_connections(metrics) >= 1:
+        _reap()
+        if not any(_proc_alive(pid) for pid in stopped):
             break
-        if proc.poll() is not None:
-            return Tunnel(False, detail=(
-                f"cloudflared exited with code {proc.returncode} while registering\n"
-                f"{_log_tail(log)[-900:]}"))
-        time.sleep(0.3)
-    return Tunnel(True, api_url=f"{found}/api/state", public_url=found,
-                  binary=str(binary), pid=proc.pid, checked_at=time.monotonic())
+        time.sleep(0.05)
+    survivors = [pid for pid in stopped if _proc_alive(pid)]
+    # The pidfile describes *the* connector. Only clear it when the pid it names
+    # is one of the pids that just went away — retiring an extra connector must
+    # not erase the keeper's pidfile.
+    pidfile = directory / "cf.pid"
+    try:
+        named = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        named = None
+    if (named is not None and not survivors
+            and (named in stopped or not _proc_alive(named))):
+        try:
+            pidfile.unlink()
+        except OSError:
+            pass
+    return {"ok": not survivors, "stopped": [p for p in stopped if p not in survivors],
+            "survivors": survivors}
 
 
 _lock = threading.Lock()
 _cached: Tunnel | None = None
 
-# A cached tunnel is re-probed at most this often: a rerun must not pay an
-# HTTPS round trip, but a page must not keep polling a tunnel that died either.
-CHECK_EVERY = 15.0
-
-# How long a registered tunnel may fail to answer before it is replaced.
-STUCK_AFTER = 180.0
-
 
 def reusable(tunnel: Tunnel) -> bool:
     """Is this tunnel still worth handing to the card?
 
-    The pid must be alive (a rebooted container forgets /proc; a rebooted script
-    process does not), and the public URL must still answer — a quick tunnel's
-    DNS name dies with its connection, so a stale name is the difference between
-    a live card and "feed unreachable".
+    The pid must be alive (not a zombie) and its connector must still report a
+    registered connection. The public hostname is only consulted for a tunnel
+    that has had time to settle: a fresh name 530s for a few seconds, and
+    killing a healthy connector over that lag is what produced endless new
+    tunnel names and a page stuck on the previous one.
     """
     if not tunnel.ok or not tunnel.pid or not _proc_alive(tunnel.pid):
         return False
     args = _cmdline(tunnel.pid)
     if not args or "cloudflared" not in os.path.basename(args[0]):
         return False
-    port = _flag_value(args, "--metrics") or ""
-    if not port.rsplit(":", 1)[-1].isdigit():
+    metrics = (_flag_value(args, "--metrics") or "").rsplit(":", 1)[-1]
+    if not metrics.isdigit() or ready_connections(int(metrics)) < 1:
         return False
-    if ready_connections(int(port.rsplit(":", 1)[-1])) < 1:
-        return False
-    # A young quick tunnel is allowed to 530 for a while; an old one that still
-    # does not answer is stuck and gets replaced instead of polled forever.
-    if tunnel.api_url and proc_age(tunnel.pid) > STUCK_AFTER:
+    if tunnel.hostname and proc_age(tunnel.pid) > STUCK_AFTER:
         if time.monotonic() - tunnel.checked_at > CHECK_EVERY:
-            if not feed_answers(tunnel.api_url):
+            if not public_answers(tunnel.hostname):
                 return False
             tunnel.checked_at = time.monotonic()
     return True
 
 
-def retire_stale_tunnel(keep: int | None = None, directory: Path | None = None) -> str:
-    """Stop every connector of ours except the one the card will use.
-
-    Two script generations racing at boot each start a cloudflared, and the
-    loser keeps its public name alive in DNS while nothing answers on it —
-    exactly Cloudflare's 1033 page. One app, one connector.
-    """
-    stopped = []
-    for pid in our_tunnels(directory):
-        if keep is not None and pid == keep:
-            continue
-        if keep is not None:
-            args = _cmdline(keep)
-            metrics = _flag_value(args, "--metrics") or ""
-            suffix = metrics.rsplit(":", 1)[-1]
-            if not suffix.isdigit() or ready_connections(int(suffix)) < 1:
-                return ""      # no healthy keeper: never tear down a survivor
-        try:
-            os.kill(pid, 15)  # SIGTERM
-            stopped.append(pid)
-        except OSError:
-            continue
-    return f"retired tunnels {stopped}" if stopped else ""
+def forget_tunnel() -> None:
+    """Drop the per-process cache: the next ``ensure_tunnel`` re-reads reality."""
+    global _cached
+    with _lock:
+        _cached = None
 
 
-def ensure_tunnel(feed_port: int, *, force: bool = False,
-                  wait_s: float = 20.0, verified: bool = True) -> Tunnel:
-    """One tunnel per Streamlit process, shared across script reruns.
+def ensure_tunnel(port: int, *, force: bool = False, wait_s: float = 30.0,
+                  verified: bool = True) -> Tunnel:
+    """One connector per host, shared across script reruns.
 
-    Order matters: reuse a connector that is already tunnelling to this feed,
-    and only start a new one when nothing adoptable is left. On Community Cloud
-    the script process is rebooted far more often than the container, so the
-    reuse path is the common one — and the only one that does not collide on the
-    metrics port.
+    Order matters: reuse a connector that is already registered, and only start
+    a new one when nothing adoptable is left. On Community Cloud the script
+    process is rebooted far more often than the container, so the reuse path is
+    the common one — and the only one that cannot collide on the metrics port.
     """
     global _cached
     with _lock:
+        _reap()
+        if not force and desired_state() == "off":
+            _cached = None
+            if our_tunnels():
+                # the file says off, a connector is still up: the file wins
+                stop_tunnel()
+            return Tunnel(False, mode="none",
+                          detail="stopped by the operator — press ▶ to start it")
         if _cached is not None and not force and reusable(_cached):
             return _cached
         _cached = None
-        adopted = adopt_running_tunnel(feed_port, verified=verified) if not force else None
+        adopted = None if force else adopt_running_tunnel(port, verified=verified)
         if adopted is not None:
             retired = retire_stale_tunnel(keep=adopted.pid)
             if retired:
@@ -507,13 +910,52 @@ def ensure_tunnel(feed_port: int, *, force: bool = False,
         retired = retire_stale_tunnel()
         if retired:
             print(f"cloudflared: {retired}", flush=True)
+        token, source = tunnel_token()
         try:
             binary = download()
-            tunnel = start_quick_tunnel(binary, feed_port, wait_s=wait_s)
+            if token:
+                tunnel = start_named_tunnel(binary, port, token, wait_s=wait_s,
+                                            token_source=source)
+            else:
+                print(f"cloudflared: {source}", flush=True)
+                tunnel = start_quick_tunnel(binary, port, wait_s=wait_s)
             if tunnel.ok and tunnel.pid:
                 retire_stale_tunnel(keep=tunnel.pid)
         except Exception as exc:  # noqa: BLE001 - the card must name the failure
-            tunnel = Tunnel(False, detail=f"{type(exc).__name__}: {exc}")
+            tunnel = Tunnel(False, mode="named" if token else "quick",
+                            detail=f"{type(exc).__name__}: {exc}")
         print(f"cloudflared: {tunnel.message}", flush=True)
+        _cached = tunnel
+        return tunnel
+
+
+def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
+    """Replace the connector without a gap: start the new one, then stop the old.
+
+    A named tunnel keeps its hostname, so a restart is invisible to a browser
+    once the page reconnects; a quick tunnel gets a new name, which is why the
+    named one is the supported path. The old connector is only touched after the
+    new one is registered — a failed start must never leave nothing running.
+    """
+    global _cached
+    with _lock:
+        _reap()
+        set_desired("on")
+        before = tunnel_status(port)
+        old = [pid for pid in ([before.get("pid")] + list(before.get("extra") or []))
+               if pid]
+        token, source = tunnel_token()
+        binary = download()
+        if token:
+            tunnel = start_named_tunnel(binary, port, token, wait_s=wait_s,
+                                        token_source=source)
+        else:
+            tunnel = start_quick_tunnel(binary, port, wait_s=wait_s)
+        if tunnel.ok:
+            survivors = [pid for pid in old if pid != tunnel.pid]
+            if survivors:
+                stop_tunnel(survivors)
+                print(f"cloudflared: retired {survivors} after a clean start", flush=True)
+            retire_stale_tunnel(keep=tunnel.pid)
         _cached = tunnel
         return tunnel

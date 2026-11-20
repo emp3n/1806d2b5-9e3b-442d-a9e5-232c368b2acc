@@ -1,0 +1,11 @@
+# Streamlit's own settings — the only ones this app needs, and one of them is
+# load-bearing: it publishes ./static/ at /app/static/, which is where the card
+# reads its numbers (/app/static/state.json). Same origin on localhost, on
+# *.streamlit.app and behind the operator's hostname, so no proxy and no second
+# port is involved.
+[server]
+enableStaticServing = true
+headless = true
+
+[browser]
+gatherUsageStats = false
