@@ -136,6 +136,12 @@ served_through_tunnel = bool(page_host) and bootstrap.public_hostname() in page_
 # runs *here*, in the process that owns the connector — after which the card
 # paints whatever is true. The parameter is cleared first, so a reload can never
 # replay an action, and the app is the only thing that ever performs one.
+# ``CARD_TUNNEL=off`` means this process does not manage a connector (a test
+# run, a build). It must also mean it refuses to start one: the buttons ask the
+# app, and an app that has been told not to touch the tunnel answers "no" rather
+# than quietly registering a second connector on the named tunnel.
+tunnel_managed = os.environ.get("CARD_TUNNEL", "on").lower() != "off"
+
 back_in_url = bootstrap.cloud_url()
 pending = (st.query_params.get("rd") or "").strip().lower()
 if pending:
@@ -143,6 +149,9 @@ if pending:
     if not use_live:
         outcome = {"ok": False, "action": pending,
                    "error": "the live source is off (?source=sample)"}
+    elif not tunnel_managed:
+        outcome = {"ok": False, "action": pending,
+                   "error": "this process does not manage the tunnel (CARD_TUNNEL=off)"}
     else:
         outcome = statefeed.sampler(port).act(pending)
     st.session_state.last_action = outcome
@@ -160,7 +169,7 @@ tunnel: bootstrap.Tunnel | None = None
 tunnel_problem = ""
 
 if use_live:
-    if os.environ.get("CARD_TUNNEL", "on").lower() != "off":
+    if tunnel_managed:
         tunnel = bootstrap.ensure_tunnel(port)
         # A connector the operator stopped on purpose is not a failure: the card
         # says "stopped by you" and the ▶ button is the way back. Anything else
@@ -200,7 +209,34 @@ page = (
              back_in=back_in_url)
     + "</body></html>"
 )
-st.iframe(page, height=1000)
+# The card is an iframe this file writes itself. ``st.iframe`` would be tidier,
+# but its sandbox omits ``allow-top-navigation`` — and the card's Stop and
+# Restart buttons are in the card, so they have to be able to ask this page for
+# a verb (``?rd=``). This is our own document, rendered from our own probe, so
+# it gets exactly that one permission on top of the defaults.
+FRAME_SANDBOX = ("allow-scripts allow-same-origin allow-forms allow-modals "
+                 "allow-popups allow-downloads allow-top-navigation")
+
+
+def _attribute(document: str) -> str:
+    """Escape the card into one line so markdown keeps the tag whole.
+
+    A raw HTML block in markdown ends at a blank line, and the card's own
+    template has them: written literally, the tag was cut in half and the rest
+    of the document spilled onto the page as text. Newlines (and tabs) travel as
+    character references, which the HTML parser decodes back before the iframe
+    ever sees the document — the card is byte-for-byte the same inside.
+    """
+    return (document.replace("&", "&amp;").replace("'", "&#39;")
+            .replace("\r", "").replace("\n", "&#10;").replace("\t", "&#9;"))
+
+
+st.markdown(
+    f'<iframe title="cloudflared card" srcdoc=\'{_attribute(page)}\' '
+    f'sandbox="{FRAME_SANDBOX}" style="width:100vw;height:100vh;border:0;'
+    f'display:block"></iframe>',
+    unsafe_allow_html=True,
+)
 
 if tunnel_problem:
     st.markdown(

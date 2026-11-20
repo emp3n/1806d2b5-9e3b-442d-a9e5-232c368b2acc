@@ -14,6 +14,7 @@ different budget.
 
 from __future__ import annotations
 
+import html
 import json
 from typing import Any
 
@@ -64,6 +65,16 @@ VIEWS = (
     ("shell", "Shell"),
     ("logs", "Logs"),
 )
+
+
+def esc(value: object) -> str:
+    """Anything that comes from the connector goes into the page escaped.
+
+    The card is now allowed to navigate its own page (that is how its buttons
+    reach the app), so a value that arrived from a process — an edge name, a
+    path, a note — must not be able to become markup here.
+    """
+    return html.escape(str(value), quote=True)
 
 
 def icon(name: str, cls: str = "") -> str:
@@ -157,8 +168,8 @@ def render(
         {mark()}
         <div class="rd-id">
           <h1 id="rd-title">cloudflared</h1>
-          <p class="rd-status" data-status-text>{live_text}</p>
-          <p class="rd-note" data-note{"" if note else " hidden"} title="{note}">{note}</p>
+          <p class="rd-status" data-status-text>{esc(live_text)}</p>
+          <p class="rd-note" data-note{"" if note else " hidden"} title="{esc(note)}">{esc(note)}</p>
         </div>
         <!-- The verbs live on the card, where they were: two round buttons in
              the header. They cannot start a process from inside an iframe, and
@@ -175,23 +186,23 @@ def render(
       </header>
 
       <div class="rd-facts">
-        <span class="rd-fact" data-tone="mem"><em>Origin IP</em><span data-fact="origin">{state["edge_ip"]}</span></span>
-        <span class="rd-fact"><em>Edges</em><span data-fact="edges">{state["edge_names"]}</span></span>
+        <span class="rd-fact" data-tone="mem"><em>Origin IP</em><span data-fact="origin">{esc(state["edge_ip"])}</span></span>
+        <span class="rd-fact"><em>Edges</em><span data-fact="edges">{esc(state["edge_names"])}</span></span>
       </div>
 
       <div class="rd-measures">
         {measure(state, "cpu")}
         <div class="rd-side">
           <div class="rd-mini">
-            <span class="rd-k">uptime</span><b data-uptime>{state["uptime"]}</b></div>
+            <span class="rd-k">uptime</span><b data-uptime>{esc(state["uptime"])}</b></div>
           <div class="rd-mini" data-tone="acc">
-            <span class="rd-k">version</span><b data-version>{state["version"]}</b></div>
+            <span class="rd-k">version</span><b data-version>{esc(state["version"])}</b></div>
         </div>
       </div>
 
       <div class="rd-path">
-        <code data-path>{state["path"]}</code>
-        <button type="button" class="rd-copy" data-copy="{state["path"]}" aria-label="Copy binary path">
+        <code data-path>{esc(state["path"])}</code>
+        <button type="button" class="rd-copy" data-copy="{esc(state["path"])}" aria-label="Copy binary path">
           {icon("copy")}<span class="rd-tip" aria-hidden="true">Copy path</span></button>
       </div>
 
