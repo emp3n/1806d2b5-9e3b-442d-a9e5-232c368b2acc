@@ -210,13 +210,15 @@ page = (
              back_in=back_in_url)
     + "</body></html>"
 )
-# The card is an iframe this file writes itself. ``st.iframe`` would be tidier,
-# but its sandbox omits ``allow-top-navigation`` — and the card's Stop and
-# Restart buttons are in the card, so they have to be able to ask this page for
-# a verb (``?rd=``). This is our own document, rendered from our own probe, so
-# it gets exactly that one permission on top of the defaults.
-FRAME_SANDBOX = ("allow-scripts allow-same-origin allow-forms allow-modals "
-                 "allow-popups allow-downloads allow-top-navigation")
+# The card is an iframe this file writes itself, from our own escaped template.
+# It has NO sandbox on purpose. A sandboxed frame may navigate the top window
+# with allow-top-navigation, but it may NEVER navigate an intermediate ancestor
+# — and on Community Cloud the app itself runs inside the viewer frame at
+# /~/+/, so the card's parent IS that intermediate ancestor. With a sandbox the
+# buttons armed, said "Restarting...", and the console said "Unsafe attempt to
+# initiate navigation ... disallowed from navigating its ancestors". Removing
+# the sandbox is safe here: every interpolated value is HTML-escaped in card.py
+# and the document contains nothing we did not render ourselves.
 
 
 def _attribute(document: str) -> str:
@@ -234,7 +236,7 @@ def _attribute(document: str) -> str:
 
 st.markdown(
     f'<iframe title="cloudflared card" srcdoc=\'{_attribute(page)}\' '
-    f'sandbox="{FRAME_SANDBOX}" style="width:100vw;height:100vh;border:0;'
+    f'style="width:100vw;height:100vh;border:0;'
     f'display:block"></iframe>',
     unsafe_allow_html=True,
 )

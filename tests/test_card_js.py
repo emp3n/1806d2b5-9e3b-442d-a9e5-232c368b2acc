@@ -157,9 +157,18 @@ def test_the_card_polls_a_relative_path():
 
 def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
     """On Community Cloud window.top is the wrapper at "/", while the app runs
-    in an inner frame at "/~/+/". Navigating top dropped the ?rd= verb."""
+    in an inner frame at "/~/+/". Navigating top dropped the ?rd= verb, and a
+    sandbox forbids navigating an intermediate ancestor at all."""
     assert "window.parent.location.replace" in SCRIPT
     assert "window.top.location" not in SCRIPT
+    shell = (CARD.parent / "app.py").read_text()
+    assert "sandbox=" not in shell, "a sandbox blocks ancestor navigation"
+
+
+def test_the_card_document_is_escaped_before_it_is_interpolated():
+    """Without a sandbox the interpolated values must not become markup."""
+    assert "def esc(value: object) -> str" in CARD.read_text()
+    assert "html.escape(str(value), quote=True)" in CARD.read_text()
 
 
 def test_the_poll_defeats_a_heuristic_cache():
