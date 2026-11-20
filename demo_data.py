@@ -196,7 +196,7 @@ def build_state(tick: int = 0, *, incident: bool = False) -> dict[str, Any]:
                        "region": "Missouri", "city": "Kansas City"},
         "edges_geo": [{"code": code, "cc": "US", "region": "Washington", "city": "Seattle"}
                       for code, _, _ in EDGES[:4]],
-        "placement": "s4a-prod/us-west1-b",
+        "shard": "shard-3",
         "connector": CONNECTOR,
         "cpu": cpu[-1],
         "cpu_text": f"{cpu[-1]:.1f}%",

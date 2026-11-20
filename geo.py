@@ -62,25 +62,29 @@ def lookup(ip: str) -> dict[str, str]:
     return result
 
 
-@functools.lru_cache(maxsize=1)
-def placement() -> str:
-    """Cloud placement from the platform's own resolv.conf search domain.
+API_APP = "{base}/api/v2/app/disambiguate"
 
-    Streamlit Cloud does not expose a numeric "shard" in /api/v2/app/status or
-    in the environment. The only placement identifier it does expose is the
-    Kubernetes search domain, e.g. ``us-west1-b.c.s4a-prod.internal``. We show
-    that verbatim as cluster/zone instead of inventing a shard number.
+
+@functools.lru_cache(maxsize=4)
+def _shard_cached(app_url: str) -> str:
+    """Cluster id from Streamlit's own disambiguate endpoint, e.g. shard-3.
+
+    /api/v2/app/status and the container env do not carry the cluster. The
+    public disambiguate route does; it is read-only and the answer is cached.
     """
-    try:
-        text = RESOLV.read_text(encoding="ascii")
-    except OSError:
+    if not app_url:
         return ""
-    for line in text.splitlines():
-        if not line.strip().startswith("search "):
-            continue
-        for token in line.split()[1:]:
-            match = re.fullmatch(r"([a-z0-9-]+)\.c\.([a-z0-9-]+)\.internal", token)
-            if match:
-                zone, cluster = match.groups()
-                return f"{cluster}/{zone}"
-    return ""
+    try:
+        data = _fetch(API_APP.format(base=app_url))
+        value = str(data.get("cluster") or "")
+        return value if re.fullmatch(r"shard-[A-Za-z0-9-]+", value) else ""
+    except Exception:  # noqa: BLE001 - a missing shard must not break the feed
+        return ""
+
+
+def shard(app_url: str) -> str:
+    """Normalize the URL before the cache key: / and no-/ are one app."""
+    return _shard_cached((app_url or "").rstrip("/"))
+
+
+shard.cache_clear = _shard_cached.cache_clear

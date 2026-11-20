@@ -859,7 +859,6 @@ class Collector:
             "edge_ip": self._trace.get("ip") or "—",
             "origin_geo": origin_geo,
             "edges_geo": edges_geo,
-            "placement": geo.placement(),
             "connector": self._ready.get("connector", "—"),
             "cpu": cpu_now,
             "cpu_text": cpu_text(cpu_now),

@@ -40,10 +40,21 @@ def test_lookup_survives_a_network_failure(monkeypatch):
     assert geo.lookup("8.8.8.8") == {}
 
 
-def test_placement_comes_from_the_platform_resolv_conf(tmp_path, monkeypatch):
-    resolv = tmp_path / "resolv.conf"
-    resolv.write_text("search default.svc.cluster.local us-west1-b.c.s4a-prod.internal\n"
-                      "nameserver 10.3.96.10\n")
-    monkeypatch.setattr(geo, "RESOLV", resolv)
-    geo.placement.cache_clear()
-    assert geo.placement() == "s4a-prod/us-west1-b"
+def test_shard_comes_from_the_disambiguate_endpoint(monkeypatch):
+    calls = []
+
+    def fake(url):
+        calls.append(url)
+        return {"cluster": "shard-3", "success": True}
+
+    monkeypatch.setattr(geo, "_fetch", fake)
+    geo.shard.cache_clear()
+    assert geo.shard("https://example.streamlit.app/") == "shard-3"
+    assert geo.shard("https://example.streamlit.app") == "shard-3"  # cached
+    assert calls == ["https://example.streamlit.app/api/v2/app/disambiguate"]
+
+
+def test_shard_is_empty_for_a_bad_answer(monkeypatch):
+    monkeypatch.setattr(geo, "_fetch", lambda url: {"cluster": "nope"})
+    geo.shard.cache_clear()
+    assert geo.shard("https://example.streamlit.app") == ""

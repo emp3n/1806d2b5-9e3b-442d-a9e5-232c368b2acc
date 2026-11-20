@@ -130,9 +130,21 @@ def flag_img(cc: str, cls: str = "rd-flag", label: str = "flag") -> str:
             f'title="{esc(cc)}" width="20" height="15" data-flag="{cc}">')
 
 
-def region_text(geo: dict[str, str]) -> str:
-    parts = [geo.get("cc", ""), geo.get("region") or geo.get("city", "")]
-    return " · ".join(p for p in parts if p)
+def geo_city(geo: dict[str, str]) -> str:
+    """Only the place the visitor asked for, not a dump of the geo record."""
+    return str(geo.get("city") or geo.get("region") or "")
+
+
+def edge_items(geo_list: list[dict[str, str]], fallback: str) -> str:
+    """Each edge keeps its code, with its SVG flag raised like a superscript."""
+    if not geo_list:
+        return esc(fallback)
+    pieces = []
+    for item in geo_list:
+        code = esc(item.get("code", ""))
+        flag = flag_img(item.get("cc", ""), "rd-flag rd-flag--edge", "edge")
+        pieces.append(f'<span class="rd-edge">{code}{flag}</span>')
+    return '<span class="rd-comma">, </span>'.join(pieces)
 
 
 def render(
@@ -206,16 +218,15 @@ def render(
 
       <div class="rd-facts">
         <span class="rd-fact" data-tone="origin">
-          <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
           <em>Origin</em><span data-fact="origin">{esc(state["edge_ip"])}</span>
-          <span class="rd-geo" data-origin-geo>{esc(region_text(state.get("origin_geo", {})))}</span>
-          <span class="rd-shard" data-shard title="{esc(state.get("placement", ""))}">{esc(state.get("placement", ""))}</span>
+          <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
+          <span class="rd-geo" data-origin-geo>{esc(geo_city(state.get("origin_geo", {})))}</span>
         </span>
         <span class="rd-fact">
-          <span class="rd-edge-flags" data-edge-flags>{''.join(flag_img(g.get('cc',''), 'rd-flag rd-flag--edge', 'edge') for g in state.get('edges_geo', []))}</span>
-          <em>Edges</em><span data-fact="edges">{esc(state["edge_names"])}</span>
+          <em>Edges</em><span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
         </span>
       </div>
+      <div class="rd-shard-line"><em>shard</em><b data-shard>{esc(state.get("shard", ""))}</b></div>
 
       <div class="rd-measures">
         {measure(state, "cpu")}
@@ -330,16 +341,22 @@ def render(
         slot.textContent = '';
         if (g && /^[A-Z]{{2}}$/.test(g.cc || '')) slot.appendChild(flagNode(g.cc, false));
       }}
-      var label = g ? [g.cc, g.region || g.city].filter(Boolean).join(' · ') : '';
-      set('[data-origin-geo]', label);
-      set('[data-shard]', (data && data.placement) || '');
-      var edges = document.querySelector('[data-edge-flags]');
-      if (edges) {{
-        edges.textContent = '';
-        (data && data.edges_geo || []).forEach(function (item) {{
-          if (item && /^[A-Z]{{2}}$/.test(item.cc || '')) edges.appendChild(flagNode(item.cc, true));
+      set('[data-origin-geo]', g ? (g.city || g.region || '') : '');
+      var list = document.querySelector('[data-edge-list]');
+      if (list) {{
+        list.textContent = '';
+        var edges = (data && data.edges_geo) || [];
+        edges.forEach(function (item, index) {{
+          if (index) list.appendChild(document.createTextNode(', '));
+          var wrap = document.createElement('span');
+          wrap.className = 'rd-edge';
+          wrap.appendChild(document.createTextNode(item.code || ''));
+          if (/^[A-Z]{{2}}$/.test(item.cc || '')) wrap.appendChild(flagNode(item.cc, true));
+          list.appendChild(wrap);
         }});
+        if (!edges.length) list.textContent = (data && data.edges) || '';
       }}
+      set('[data-shard]', (data && data.shard) || '');
     }}
     /* no process: dashes, not the last flattering numbers, and a line that
        decays to flat instead of freezing mid-air */

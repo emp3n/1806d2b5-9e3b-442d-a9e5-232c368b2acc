@@ -125,15 +125,13 @@ def test_concurrent_writers_never_share_a_temporary_file(tmp_path, monkeypatch):
     assert [p.name for p in target.parent.iterdir()] == ["state.json"]
 
 
-def test_geo_and_placement_reach_the_browser_payload():
-    state = full_state()
-    state["origin_geo"] = {"cc": "US", "region": "Missouri"}
-    state["edges_geo"] = [{"code": "sea01", "cc": "US"}]
-    state["placement"] = "s4a-prod/us-west1-b"
-    payload = statefeed.to_payload(state)
-    assert payload["origin_geo"]["cc"] == "US"
-    assert payload["edges_geo"][0]["cc"] == "US"
-    assert payload["placement"] == "s4a-prod/us-west1-b"
+def test_shard_reaches_the_browser_payload(sampler, tmp_path, monkeypatch):
+    monkeypatch.setattr(statefeed.geo, "shard", lambda url: "shard-3")
+    monkeypatch.setattr(statefeed.bootstrap, "cloud_url",
+                        lambda: "https://example.streamlit.app")
+    payload = sampler.refresh()
+    assert payload["shard"] == "shard-3"
+    assert json.loads(statefeed.state_path(tmp_path).read_text())["shard"] == "shard-3"
 
 
 def test_the_file_length_never_changes_between_replacements(tmp_path):

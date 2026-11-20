@@ -32,6 +32,7 @@ from typing import Any
 
 import bootstrap
 from live import Collector
+import geo
 from resources import available_cores, cores_text
 
 INTERVAL = 1.0
@@ -103,8 +104,6 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
     tunnel = tunnel or {}
     if not state.get("found"):
         payload: dict[str, Any] = {"found": False}
-        if state.get("placement"):
-            payload["placement"] = state["placement"]
         if last_action:
             payload["last_action"] = last_action
         if tunnel:
@@ -142,7 +141,6 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "origin_geo": state.get("origin_geo", {}),
         "edges": state["edge_names"],
         "edges_geo": state.get("edges_geo", []),
-        "placement": state.get("placement", ""),
         "proc_state": state["proc_state"],
         "source_label": state["source_label"],
         "register_fail": state.get("register_fail", 0),
@@ -211,6 +209,10 @@ class Sampler:
             self.collector.pid = None
             state = {"found": False}
         payload = to_payload(state, self.last_action, status)
+        # The cluster is a deployment property, not a process property, so it
+        # is fetched once (cached) and published beside — never inside — the
+        # origin/edges rows.
+        payload["shard"] = geo.shard(bootstrap.cloud_url())
         payload["ts"] = round(time.time(), 3)
         with self._lock:
             self._payload = payload

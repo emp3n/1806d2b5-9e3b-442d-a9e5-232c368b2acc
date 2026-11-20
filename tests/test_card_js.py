@@ -198,25 +198,28 @@ def test_the_chosen_memory_unit_survives_every_poll():
     assert "if (spark.key === 'mem') show(spark, spark.shown)" in SCRIPT
 
 
-def test_flags_region_and_placement_are_rendered_from_state():
+def test_flags_city_and_shard_are_rendered_in_their_own_places():
     from card import render
     from demo_data import build_state
 
     state = build_state(0)
     state["origin_geo"] = {"cc": "US", "country": "United States",
                            "region": "Missouri", "city": "Kansas City"}
-    state["edges_geo"] = [{"code": "sea01", "cc": "US", "region": "Washington"},
-                          {"code": "fra04", "cc": "DE", "region": "Hesse"}]
-    state["placement"] = "s4a-prod/us-west1-b"
+    state["edges_geo"] = [{"code": "sea01", "cc": "US"},
+                          {"code": "fra04", "cc": "DE"}]
+    state["shard"] = "shard-3"
     page = render(state, theme="dark")
-    assert 'src="app/static/flags/us.svg"' in page
-    assert 'src="app/static/flags/de.svg"' in page
-    assert "US · Missouri" in page
-    assert "s4a-prod/us-west1-b" in page
+    origin = page[page.index('data-tone="origin"'):page.index('rd-facts') + 400]
+    assert origin.index('data-fact="origin"') < origin.index('data-origin-flag')
+    assert "app/static/flags/us.svg" in origin
+    assert "Kansas City" in origin and "Missouri" not in origin
+    assert '<span class="rd-edge">sea01' in page
     assert 'class="rd-flag rd-flag--edge"' in page
+    assert '<div class="rd-shard-line">' in page
+    assert "shard-3" in page
     css = (CARD.parent / "theme.py").read_text()
-    assert ".rd-flag--edge { width: 8px" in css
-    assert ".rd-shard" in css
+    assert ".rd-flag--edge {" in css and "translateY(-3px)" in css
+    assert ".rd-shard-line {" in css
 
 
 def test_geo_paint_is_guarded_against_injected_codes():
