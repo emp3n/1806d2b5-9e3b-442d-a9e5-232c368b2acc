@@ -638,16 +638,12 @@ def render(
     }}
 
     function fire(verb) {{
-      var here = window.parent.location.href;
-      try {{
-        var url = new URL(here);
-        url.searchParams.set('rd', verb);
-        /* replace, not assign: the page before the action is not somewhere the
-           back button should return to and replay */
-        window.parent.location.replace(url.toString());
-      }} catch (err) {{
-        window.parent.location.href = here.split('#')[0].split('?')[0] + '?rd=' + verb;
-      }}
+      /* The card cannot navigate its parent: on Community Cloud the whole app
+         is itself a sandboxed viewer frame, so any ancestor navigation from a
+         descendant is blocked by the browser. The app document installed a
+         guarded postMessage bridge (app.py) that reloads ITSELF with ?rd=;
+         the message carries only one of three fixed verbs, nothing secret. */
+      window.parent.postMessage({{rd: verb}}, '*');
     }}
 
     if (powerBtn) {{

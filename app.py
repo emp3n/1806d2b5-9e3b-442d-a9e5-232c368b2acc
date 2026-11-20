@@ -234,6 +234,27 @@ def _attribute(document: str) -> str:
             .replace("\r", "").replace("\n", "&#10;").replace("\t", "&#9;"))
 
 
+# The Cloud viewer itself is a sandboxed frame, so a descendant cannot navigate
+# its parent no matter what we put in the card's own sandbox. The card therefore
+# sends a tiny postMessage and the app document (which CAN navigate itself)
+# reloads with the verb. One guarded listener per script run.
+st.html(
+    """<script>
+(function () {
+  if (window.__rdVerbBridge) return;
+  window.__rdVerbBridge = true;
+  window.addEventListener('message', function (event) {
+    var verb = event.data && event.data.rd;
+    if (verb !== 'stop' && verb !== 'start' && verb !== 'restart') return;
+    var url = new URL(window.location.href);
+    url.searchParams.set('rd', verb);
+    window.location.replace(url.toString());
+  });
+})();
+</script>""",
+    unsafe_allow_javascript=True,
+)
+
 st.markdown(
     f'<iframe title="cloudflared card" srcdoc=\'{_attribute(page)}\' '
     f'style="width:100vw;height:100vh;border:0;'

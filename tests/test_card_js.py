@@ -147,6 +147,17 @@ def test_staleness_is_observed_not_subtracted_from_the_clock():
     assert "now - beatSeen" in body
 
 
+def test_the_app_installs_a_postmessage_bridge():
+    """The Cloud viewer is a sandbox, so the card cannot navigate any ancestor.
+    The parent app document listens for the three fixed verbs and navigates
+    itself; a guard keeps one listener per script run."""
+    shell = (CARD.parent / "app.py").read_text()
+    assert "window.__rdVerbBridge" in shell
+    assert "window.addEventListener('message'" in shell
+    assert "url.searchParams.set('rd', verb)" in shell
+    assert "unsafe_allow_javascript=True" in shell
+
+
 def test_the_card_polls_a_relative_path():
     """The srcdoc frame resolves it against the app document: "/" on a plain
     host, "/~/+/" on Cloud. A leading slash lost the viewer prefix."""
@@ -159,7 +170,8 @@ def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
     """On Community Cloud window.top is the wrapper at "/", while the app runs
     in an inner frame at "/~/+/". Navigating top dropped the ?rd= verb, and a
     sandbox forbids navigating an intermediate ancestor at all."""
-    assert "window.parent.location.replace" in SCRIPT
+    assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
+    assert "window.parent.location" not in SCRIPT
     assert "window.top.location" not in SCRIPT
     shell = (CARD.parent / "app.py").read_text()
     assert "sandbox=" not in shell, "a sandbox blocks ancestor navigation"
@@ -211,8 +223,7 @@ def test_a_card_button_asks_the_app_instead_of_acting_itself():
     """An iframe cannot start a process. The button must not pretend to: it asks
     the app (?rd=<verb>), and the app is the only thing that performs a verb."""
     assert "function fire(verb)" in SCRIPT
-    assert "url.searchParams.set('rd', verb)" in SCRIPT
-    assert "window.parent.location.replace" in SCRIPT
+    assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
     # no second port, no action route, no key
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
     assert "data-action=" not in CARD.read_text()
@@ -245,7 +256,7 @@ def test_the_glyph_follows_the_process_not_the_click():
 def test_the_card_has_no_http_action_endpoint():
     """One channel. The card asks; the app acts; the state file answers."""
     assert "act(" not in SCRIPT
-    assert "POST" not in SCRIPT.upper().replace("POSTER", "")
+    assert "method:" not in SCRIPT and "X-RD-Action" not in SCRIPT
     assert "data-action=" not in CARD.read_text()
 
 def test_the_tunnel_hostname_reaches_the_card_as_a_string():
