@@ -540,9 +540,23 @@ def render(
        on screen looking exactly like live ones; the stamp is what tells the two
        apart. Clock skew between the container and the browser is a second or
        two, so the threshold is generous. */
+    /* Staleness is observed, never computed from two clocks. The stamp is
+       written by the server and read by a phone that can be minutes off, so
+       comparing them called a live file stalled on any device running ahead
+       and reported negative ages on the ones running behind. What matters is
+       whether the file is still being rewritten: same stamp for longer than
+       RD_STALE seconds of *local* time means the writer stopped. */
+    var beatTs = null, beatSeen = 0;
     function beat(data) {{
       if (!data || typeof data.ts !== 'number') return '';
-      var age = Math.round(Date.now() / 1000 - data.ts);
+      var now = Date.now();
+      if (beatTs === null || data.ts !== beatTs) {{
+        beatTs = data.ts;
+        beatSeen = now;
+        if (card.getAttribute('data-feed') === 'stalled') card.setAttribute('data-feed', 'ok');
+        return '';
+      }}
+      var age = Math.round((now - beatSeen) / 1000);
       if (age <= RD_STALE) {{
         if (card.getAttribute('data-feed') === 'stalled') card.setAttribute('data-feed', 'ok');
         return '';

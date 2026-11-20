@@ -138,6 +138,15 @@ def test_the_heartbeat_separates_stalled_from_live():
     assert "beat(data)" in SCRIPT.split("function beat(data)")[1], "beat() is never used"
 
 
+def test_staleness_is_observed_not_subtracted_from_the_clock():
+    """A phone whose clock is minutes ahead must not see a live file as stalled:
+    the page compares the stamp to the last stamp it saw, not to Date.now()."""
+    body = SCRIPT.split("function beat(data)")[1].split("function apply(")[0]
+    assert "Date.now() / 1000 - data.ts" not in body, "clocks are subtracted again"
+    assert "beatSeen = now" in body and "data.ts !== beatTs" in body
+    assert "now - beatSeen" in body
+
+
 def test_the_poll_defeats_a_heuristic_cache():
     """The static file has no Cache-Control, so a plain GET may be served from
     the browser's heuristic cache and freeze the card for minutes."""
