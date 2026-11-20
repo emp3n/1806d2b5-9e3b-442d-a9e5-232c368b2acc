@@ -400,13 +400,13 @@ pidfile → `/proc` → `/ready`: чужой `cloudflared`, systemd или ко�
 ## Тесты
 
 ```sh
-python3 -m pytest tests -q                            # 142: юниты
+python3 -m pytest tests -q                            # 146: юниты
 CARD_INTEGRATION=1 python3 -m pytest tests -q         # + настоящий cloudflared
 ```
 
 | Файл | Что проверяет |
 |---|---|
-| `tests/test_bootstrap.py` (35) | токен из секрета → окружения → файла; `--token-file` вместо `--token`; отказ по токену назван; не зарегистрировался — не «запущено»; зомби не живой; adopt/stop/restart; порядок «сначала старт, потом stop»; намерение `off` переживает rerun; quick → named |
+| `tests/test_bootstrap.py` (39) | токен из секрета → окружения → файла; `--token-file` вместо `--token`; отказ по токену назван; не зарегистрировался — не «запущено»; зомби не живой; adopt/stop/restart; порядок «сначала старт, потом stop»; намерение `off` переживает rerun; quick → named |
 | `tests/test_statefeed.py` (18) | пейлоад и его поля; атомарная запись; `ts` идёт вперёд; нет коннектора — `found:false`, а не чужие числа; глаголы `stop`/`start`/`restart` и их провал; `stop` запоминается |
 | `tests/test_proc.py` (59) | разбор `/proc`, метрики, `/ready` (тело 503), лог (JSON и текст, склеивание слотов `connIndex`), адрес лога, токен не попадает в состояние/пейлоад/HTML, каждый край назван один раз |
 | `tests/test_card_js.py` (17) | отказ называется, а не замораживается; цепочка с дедлайном и бэкоффом; возобновление по `visibilitychange`/`pageshow`/`online`; притушенные числа; `stalled` по наблюдению, а не по чужим часам; подтверждение остановки в оболочке; у карточки нет своего HTTP-эндпоинта |
