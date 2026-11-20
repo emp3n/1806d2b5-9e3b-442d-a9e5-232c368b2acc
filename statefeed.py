@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -62,13 +63,23 @@ def write_state(payload: dict[str, Any], path: Path | None = None) -> Path:
     """
     target = path or state_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_name(target.name + ".new")
     text = json.dumps(payload, separators=(",", ":"), allow_nan=False)
     data = text.encode("utf-8")
     if len(data) > STATE_SIZE:
         raise ValueError(f"state payload is {len(data)} bytes, limit {STATE_SIZE}")
-    partial.write_bytes(data + b" " * (STATE_SIZE - len(data)))
-    os.replace(partial, target)
+    # A shared "state.json.new" is a race: two sampler threads (or two script
+    # processes during a Cloud reboot) both create it, one os.replace() wins and
+    # the other gets FileNotFoundError. mkstemp gives each write its own inode.
+    fd, name = tempfile.mkstemp(dir=target.parent, prefix=target.name + ".",
+                                suffix=".new")
+    partial = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data + b" " * (STATE_SIZE - len(data)))
+        os.replace(partial, target)
+    finally:
+        if partial.exists():
+            partial.unlink()
     return target
 
 

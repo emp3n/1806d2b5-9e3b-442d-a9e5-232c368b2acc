@@ -108,6 +108,23 @@ def test_a_write_is_atomic_and_readable(tmp_path):
     assert [p.name for p in target.parent.iterdir()] == ["state.json"]
 
 
+def test_concurrent_writers_never_share_a_temporary_file(tmp_path, monkeypatch):
+    """During a Cloud reboot two script processes can write the same second.
+    A fixed "state.json.new" made the loser crash with FileNotFoundError in
+    os.replace; every write must get its own inode."""
+    seen = []
+    original = statefeed.os.replace
+    monkeypatch.setattr(statefeed.os, "replace",
+                        lambda src, dst: (seen.append(str(src)), original(src, dst))[1])
+    target = statefeed.state_path(tmp_path)
+    statefeed.write_state({"found": True, "n": 1}, target)
+    statefeed.write_state({"found": True, "n": 2}, target)
+    assert len(seen) == 2
+    assert seen[0] != seen[1]
+    assert all("state.json." in name and name.endswith(".new") for name in seen)
+    assert [p.name for p in target.parent.iterdir()] == ["state.json"]
+
+
 def test_the_file_length_never_changes_between_replacements(tmp_path):
     """Starlette takes Content-Length from stat() before it streams the file.
 
