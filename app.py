@@ -205,7 +205,7 @@ page = (
     '<meta name="theme-color" content="#161819" media="(prefers-color-scheme: dark)">'
     f"<style>{THEME_CSS}</style></head><body>"
     + render(state, theme=theme, view=view, state_url=state_url,
-             host=bootstrap.public_hostname() if served_through_tunnel else "",
+             tunnel_host=bootstrap.public_hostname() if served_through_tunnel else "",
              back_in=back_in_url)
     + "</body></html>"
 )

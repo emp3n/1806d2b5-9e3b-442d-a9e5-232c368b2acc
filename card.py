@@ -126,7 +126,7 @@ def render(
     theme: str = "dark",
     view: str = "services",
     state_url: str | None = None,
-    host: str = "",
+    tunnel_host: str = "",
     back_in: str = "",
 ) -> str:
     """The console.
@@ -136,9 +136,12 @@ def render(
     ``/app/static/state.json``, so the same path works on localhost, on
     ``*.streamlit.app`` and behind the operator's hostname.
 
-    ``host`` is set when this page itself arrived through the tunnel, which is
-    the one case where stopping the connector also closes the page: the buttons
-    name it before they act, and ``back_in`` is the address that survives.
+    ``tunnel_host`` is set when this page itself arrived through the tunnel,
+    which is the one case where stopping the connector also closes the page: the
+    buttons name it before they act, and ``back_in`` is the address that
+    survives. It is named apart from the card's own ``host`` (the machine's
+    cores and RAM), which used to shadow it — the warning then read "[object
+    Object]" instead of the hostname.
     """
     host = state["host"]
     live_text = f'{state["live"]} of 4 connections live'
@@ -261,7 +264,7 @@ def render(
   /* empty unless this page itself arrived through the tunnel: that is the one
      case where stopping the connector closes the page, so the button says so
      first and names the address that survives (RD_BACK) */
-  var RD_HOST = {json.dumps(host)};
+  var RD_HOST = {json.dumps(str(tunnel_host))};
   var RD_BACK = {json.dumps(back_in)};
   /* the heartbeat is written by the sampler thread once a second; a payload
      whose stamp is older than this means the sampler stopped, not that the

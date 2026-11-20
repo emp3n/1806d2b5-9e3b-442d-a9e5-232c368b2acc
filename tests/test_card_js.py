@@ -223,3 +223,21 @@ def test_the_card_has_no_http_action_endpoint():
     assert "act(" not in SCRIPT
     assert "POST" not in SCRIPT.upper().replace("POSTER", "")
     assert "data-action=" not in CARD.read_text()
+
+def test_the_tunnel_hostname_reaches_the_card_as_a_string():
+    """The card's own ``host`` is the machine's cores and RAM. When the render
+    parameter was also called ``host`` it shadowed that local, and the browser got
+    RD_HOST as an object: stopping from the tunnel page warned "Stopping closes
+    [object Object]" instead of naming the hostname that goes dark."""
+    from card import render
+    from demo_data import build_state
+
+    page = render(build_state(0), tunnel_host="streamlit.idealis.cc",
+                  back_in="https://example.streamlit.app")
+    assert 'var RD_HOST = "streamlit.idealis.cc";' in page
+    assert "[object Object]" not in page
+    assert 'var RD_BACK = "https://example.streamlit.app";' in page
+    # no render parameter may collide with a name the card already declares:
+    # the signature may take ``tunnel_host``, never a bare ``host``
+    assert "\n    host: str = \"\"," not in CARD.read_text()
+    assert "\n    tunnel_host: str = \"\"," in CARD.read_text()
