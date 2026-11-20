@@ -118,10 +118,10 @@ if use_live:
     # so a phone gets the page's own origin (gateway.py puts /api/state there).
     explicit = os.environ.get("CARD_API_URL") or str(params.get("api", "")) or None
     page = page_url()
-    from bootstrap import on_streamlit_cloud
+    from bootstrap import in_cloud_runtime, on_streamlit_cloud
 
-    print(f"card: page={page!r} cloud={on_streamlit_cloud(page)}", flush=True)
-    if not explicit and on_streamlit_cloud(page) and os.environ.get("CARD_TUNNEL", "on").lower() != "off":
+    print(f"card: page={page!r} cloud={on_streamlit_cloud(page)} runtime={in_cloud_runtime()}", flush=True)
+    if not explicit and (on_streamlit_cloud(page) or in_cloud_runtime()) and os.environ.get("CARD_TUNNEL", "on").lower() != "off":
         from bootstrap import ensure_tunnel
 
         tunnel = ensure_tunnel(port)

@@ -36,6 +36,15 @@ BASE = "https://github.com/cloudflare/cloudflared/releases/download"
 TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
+def in_cloud_runtime() -> bool:
+    """Community Cloud mounts the app at /mount/src/<repo> and does not give
+    st.context.url to the script until a session exists. Checking both makes
+    the tunnel bootstrap reliable on the very first visit."""
+    if os.environ.get("CARD_TUNNEL", "").lower() == "on":
+        return True
+    return Path("/mount/src").is_dir()
+
+
 def on_streamlit_cloud(url: str | None) -> bool:
     """A Streamlit Cloud page cannot proxy /api/state to our in-process feed.
 
