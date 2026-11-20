@@ -643,7 +643,7 @@ def render(
       set('[data-status-text]', 'feed unreachable');
       /* the footer is the provenance line: name the address that failed, so
          "127.0.0.1" on a phone explains itself */
-      set('[data-source]', 'no feed · ' + RD_API.replace(/^https?:\/\//, '').replace('/api/state', ''));
+      set('[data-source]', 'no feed · ' + RD_API.replace(/^https?:\\/\\//, '').replace('/api/state', ''));
     }}
     function schedule(delay) {{
       if (beatTimer) window.clearTimeout(beatTimer);

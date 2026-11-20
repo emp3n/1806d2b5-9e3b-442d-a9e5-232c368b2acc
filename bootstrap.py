@@ -121,13 +121,15 @@ def download(directory: Path | None = None, version: str = VERSION,
     url = download_url(version)
     fetch = opener or urllib.request.urlopen
     partial = directory / "cloudflared.download"
-    with fetch(url, timeout=90) as reply, partial.open("wb") as out:
+    print(f"cloudflared: downloading {url}", flush=True)
+    with fetch(url, timeout=25) as reply, partial.open("wb") as out:
         shutil.copyfileobj(reply, out)
     if partial.stat().st_size < 1_000_000:
         partial.unlink(missing_ok=True)
         raise RuntimeError(f"suspiciously small cloudflared download: {url}")
     partial.replace(target)
     target.chmod(0o755)
+    print(f"cloudflared: binary ready ({target.stat().st_size} bytes)", flush=True)
     return target
 
 
@@ -148,7 +150,7 @@ def _log_tail(path: Path, count: int = 25) -> str:
 
 
 def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = None,
-                       wait_s: float = 30.0, runner=None) -> Tunnel:
+                       wait_s: float = 20.0, runner=None) -> Tunnel:
     """Run ``cloudflared tunnel --url http://127.0.0.1:<feed_port>``.
 
     A quick tunnel needs no token, so a fresh Streamlit Cloud deployment works
@@ -166,6 +168,7 @@ def start_quick_tunnel(binary: Path, feed_port: int, directory: Path | None = No
         "--pidfile", str(pidfile),
         "--loglevel", "info",
     ]
+    print(f"cloudflared: quick tunnel -> 127.0.0.1:{feed_port}", flush=True)
     launch = runner or subprocess.Popen
     try:
         proc = launch(command, stdout=subprocess.DEVNULL,
@@ -204,7 +207,7 @@ _cached: Tunnel | None = None
 
 
 def ensure_tunnel(feed_port: int, *, force: bool = False,
-                  wait_s: float = 30.0) -> Tunnel:
+                  wait_s: float = 20.0) -> Tunnel:
     """One tunnel per Streamlit process, shared across script reruns."""
     global _cached
     with _lock:
@@ -215,5 +218,6 @@ def ensure_tunnel(feed_port: int, *, force: bool = False,
             tunnel = start_quick_tunnel(binary, feed_port, wait_s=wait_s)
         except Exception as exc:  # noqa: BLE001 - the card must name the failure
             tunnel = Tunnel(False, detail=f"{type(exc).__name__}: {exc}")
+        print(f"cloudflared: {tunnel.message}", flush=True)
         _cached = tunnel
         return tunnel
