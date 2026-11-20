@@ -223,6 +223,8 @@ def render(
                 "levels": state["cpu_levels"],
                 "budget": state["cpu_budget"],
                 "cores": float(state.get("host", {}).get("cores") or 1),
+                "cores_text": state.get("cores_text")
+                              or ("%.1f" % float(state.get("host", {}).get("cores") or 1)),
                 "scale": 100,
                 "bands": [25.0, 50.0, 80.0],
                 "base": state["cpu"],
@@ -477,7 +479,8 @@ def render(
          of its own budget. The core count comes from cgroups, not a constant. */
       var cores = spark.geo.cores || 1;
       var share = spark.key === 'cpu' ? value / cores : 100 * value / spark.geo.scale;
-      var budget = spark.key === 'cpu' ? cores + ' cores' : spark.geo.budget;
+      var budget = spark.key === 'cpu'
+        ? (spark.geo.cores_text || cores) + ' cores' : spark.geo.budget;
       var sub = (share > 0 && share < 1 ? share.toFixed(2) : Math.round(share)) + '% of ' + budget;
       if (spark.__sub !== sub) {{ spark.sub.textContent = sub; spark.__sub = sub; }}
       var level = band(spark, value);

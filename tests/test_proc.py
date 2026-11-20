@@ -177,7 +177,7 @@ def test_a_sub_percent_reading_reaches_the_card(fake_proc, monkeypatch):
     state = collector.state()
     assert state["cpu_text"] == "0.30%"
     cores = live.available_cores()
-    assert state["cpu_share"] == f"{0.30 / cores:.2f}% of {cores} cores"
+    assert state["cpu_share"] == f"{0.30 / cores:.2f}% of {live.cores_text(cores)} cores"
     page = card.render(state, theme="dark")
     assert "0.30%" in page and re.search(r"of [\d.]+ cores", page)
 

@@ -47,7 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from resources import available_cores, memory_limit_bytes
+from resources import available_cores, cores_text, memory_limit_bytes
 
 PROC = Path("/proc")
 CLOCK_TICKS = 100  # USER_HZ on Linux/amd64; the /proc contract, not a guess
@@ -850,7 +850,7 @@ class Collector:
             "cpu_budget": f"{cores} cores",
             # cpu_now is single-core-equivalent percent (0..100*cores). Show the
             # share of the *container's* allowance, not of an imaginary core.
-            "cpu_share": f"{cpu_now / cores:.2f}% of {cores} cores",
+            "cpu_share": f"{cpu_now / cores:.2f}% of {cores_text(cores)} cores",
             "cpu_peak": f"{max(cpu_series):.1f}%",
             "cpu_series": cpu_series,
             "cpu_levels": cpu_levels,
