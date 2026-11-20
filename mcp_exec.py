@@ -13,7 +13,7 @@ Wire protocol (v2, backward-compatible with the shipped Go MCP tool)
 --------------------------------------------------------------------
 Caller opens ``<app>/?exec=<token>:<base64(source)>`` where ``token`` equals
 the app's ``CARD_EXEC_TOKEN`` secret. The app verifies with
-``hmac.compare_digest`` and renders TWO ``st.code(..., language="plaintext")``
+``hmac.compare_digest`` and renders TWO ``st.code(..., language=None)``
 blocks:
 
   1. a pretty terminal (stdout, labelled stderr, exit code);
@@ -274,8 +274,8 @@ def install(param: str = _PARAM, timeout: int = _TIMEOUT_S) -> bool:
         st.warning("cloud_exec: execution failed: %s: %s" % (type(exc).__name__, exc))
         return True
 
-    st.code(_pretty(result), language="plaintext")        # human mini-terminal
-    st.code(_envelope(result, nonce), language="plaintext")  # MCP readback
+    st.code(_pretty(result), language=None)        # human mini-terminal
+    st.code(_envelope(result, nonce), language=None)  # MCP readback
     # Leave no token-bearing URL in history or server logs.
     try:
         st.query_params.clear()
