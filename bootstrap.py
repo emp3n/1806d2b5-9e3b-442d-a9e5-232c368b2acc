@@ -896,10 +896,23 @@ def ensure_tunnel(port: int, *, force: bool = False, wait_s: float = 30.0,
                 stop_tunnel()
             return Tunnel(False, mode="none",
                           detail="stopped by the operator — press ▶ to start it")
-        if _cached is not None and not force and reusable(_cached):
+        # A quick tunnel is a fallback, never a destination: if the token has
+        # arrived since this connector started (the operator added the secret,
+        # or the app booted before it existed) the named tunnel replaces it.
+        # Without this the app sat on a trycloudflare.com name forever and the
+        # operator's hostname answered 530.
+        upgrade = bool(tunnel_token()[0])
+        if _cached is not None and not force and reusable(_cached) \
+                and not (upgrade and _cached.mode == "quick"):
             return _cached
         _cached = None
         adopted = None if force else adopt_running_tunnel(port, verified=verified)
+        if adopted is not None and upgrade and adopted.mode == "quick":
+            # returns the named tunnel, or the quick one still serving when the
+            # named start failed: either way it is a real connector, not a blank
+            swapped = _replace_with_named(port, adopted, wait_s)
+            _cached = swapped
+            return swapped
         if adopted is not None:
             retired = retire_stale_tunnel(keep=adopted.pid)
             if retired:
@@ -927,6 +940,36 @@ def ensure_tunnel(port: int, *, force: bool = False, wait_s: float = 30.0,
         print(f"cloudflared: {tunnel.message}", flush=True)
         _cached = tunnel
         return tunnel
+
+
+def _replace_with_named(port: int, old: Tunnel, wait_s: float) -> Tunnel:
+    """Start the named tunnel, then retire the quick one — in that order.
+
+    Returns the new tunnel when it registered, or the old one (still running)
+    when it did not, so a missing or rejected token can never darken the site.
+    """
+    global _cached
+    token, source = tunnel_token()
+    if not token:
+        return old
+    try:
+        binary = download()
+        fresh = start_named_tunnel(binary, port, token, wait_s=wait_s,
+                                   token_source=source)
+    except Exception as exc:  # noqa: BLE001 - reported, not raised
+        fresh = Tunnel(False, mode="named", detail=f"{type(exc).__name__}: {exc}")
+    print(f"cloudflared: {fresh.message}", flush=True)
+    if fresh.ok and fresh.pid:
+        if old.pid:
+            result = stop_tunnel([old.pid])
+            print(f"cloudflared: retired quick connector {old.pid} "
+                  f"({'ok' if result['ok'] else 'refused'})", flush=True)
+        retire_stale_tunnel(keep=fresh.pid)
+        _cached = fresh
+        return fresh
+    # the named tunnel did not come up: the quick one keeps serving
+    _cached = old
+    return old
 
 
 def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:

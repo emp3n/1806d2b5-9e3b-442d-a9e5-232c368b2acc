@@ -524,3 +524,74 @@ def test_ensure_tunnel_names_a_download_failure(tmp_path, monkeypatch):
     tunnel = bootstrap.ensure_tunnel(8501)
     assert tunnel.ok is False
     assert "no route to GitHub" in tunnel.message
+
+
+# --------------------------------------------------------------- quick -> named
+def test_a_quick_connector_is_replaced_once_a_token_exists(tmp_path, monkeypatch):
+    """The app booted before the secret existed, so it fell back to
+    trycloudflare.com and stayed there. The operator's hostname 530ed."""
+    monkeypatch.setenv("CARD_RUNTIME", str(tmp_path))
+    monkeypatch.setattr(bootstrap, "_cached", None)
+    quick = bootstrap.Tunnel(True, mode="quick", pid=4000,
+                             public_url="https://x.trycloudflare.com",
+                             hostname="x.trycloudflare.com")
+    named = bootstrap.Tunnel(True, mode="named", pid=5000,
+                             public_url="https://streamlit.idealis.cc",
+                             hostname="streamlit.idealis.cc")
+    monkeypatch.setattr(bootstrap, "our_tunnels", lambda directory=None: [4000])
+    monkeypatch.setattr(bootstrap, "reusable", lambda tunnel: True)
+    monkeypatch.setattr(bootstrap, "tunnel_token", lambda settings=None: (TOKEN, "secret TEST"))
+    monkeypatch.setattr(bootstrap, "adopt_running_tunnel",
+                        lambda port, verified=True: quick)
+    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    order = []
+    monkeypatch.setattr(bootstrap, "start_named_tunnel",
+                        lambda *a, **k: (order.append("start-named") or named))
+    monkeypatch.setattr(bootstrap, "stop_tunnel",
+                        lambda pids=None, directory=None: (
+                            order.append(("stop", list(pids or []))) or
+                            {"ok": True, "stopped": list(pids or []), "survivors": []}))
+    monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
+
+    tunnel = bootstrap.ensure_tunnel(8501)
+    assert tunnel.mode == "named" and tunnel.pid == 5000
+    assert order == ["start-named", ("stop", [4000])], "the swap is start-then-stop"
+
+
+def test_a_failed_named_start_leaves_the_quick_tunnel_serving(tmp_path, monkeypatch):
+    monkeypatch.setenv("CARD_RUNTIME", str(tmp_path))
+    monkeypatch.setattr(bootstrap, "_cached", None)
+    quick = bootstrap.Tunnel(True, mode="quick", pid=4000,
+                             public_url="https://x.trycloudflare.com",
+                             hostname="x.trycloudflare.com")
+    monkeypatch.setattr(bootstrap, "our_tunnels", lambda directory=None: [4000])
+    monkeypatch.setattr(bootstrap, "reusable", lambda tunnel: True)
+    monkeypatch.setattr(bootstrap, "tunnel_token", lambda settings=None: (TOKEN, "secret TEST"))
+    monkeypatch.setattr(bootstrap, "adopt_running_tunnel",
+                        lambda port, verified=True: quick)
+    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "start_named_tunnel",
+                        lambda *a, **k: bootstrap.Tunnel(False, mode="named",
+                                                         detail="did not register"))
+    stopped = []
+    monkeypatch.setattr(bootstrap, "stop_tunnel",
+                        lambda pids=None, directory=None: stopped.append(list(pids or [])))
+
+    tunnel = bootstrap.ensure_tunnel(8501)
+    assert tunnel is quick and tunnel.ok, "the fallback keeps the site up"
+    assert stopped == [], "nothing may be stopped when the replacement failed"
+
+
+def test_a_named_connector_is_never_downgraded_to_quick(tmp_path, monkeypatch):
+    monkeypatch.setenv("CARD_RUNTIME", str(tmp_path))
+    monkeypatch.setattr(bootstrap, "_cached", None)
+    named = bootstrap.Tunnel(True, mode="named", pid=5000,
+                             public_url="https://streamlit.idealis.cc",
+                             hostname="streamlit.idealis.cc")
+    monkeypatch.setattr(bootstrap, "our_tunnels", lambda directory=None: [5000])
+    monkeypatch.setattr(bootstrap, "reusable", lambda tunnel: True)
+    monkeypatch.setattr(bootstrap, "tunnel_token", lambda settings=None: (None, "no tunnel token"))
+    monkeypatch.setattr(bootstrap, "adopt_running_tunnel", lambda port, verified=True: named)
+    monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
+    tunnel = bootstrap.ensure_tunnel(8501)
+    assert tunnel is named and tunnel.mode == "named"
