@@ -173,7 +173,7 @@ def test_the_result_is_shown_once_in_the_cards_own_bottom_toast():
     assert SCRIPT.index("var act = data.last_action") < SCRIPT.index("if (!data || !data.found)")
     shell = (CARD.parent / "app.py").read_text()
     assert "st.toast(" not in shell
-    assert "outcome.setdefault(\"at\", int(time.time()))" in shell
+    assert 'outcome["at"] = int(time.time())' in shell
     assert "sampler.last_action = outcome" in shell
 
 

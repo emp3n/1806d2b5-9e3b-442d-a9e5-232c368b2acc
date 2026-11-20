@@ -163,7 +163,14 @@ def _run_verb(verb: str) -> None:
     # The card reads state.json, not session_state: even a refusal must reach
     # that one channel so the bottom notification can name the reason. ``at``
     # is the card's "show this once" key (Sampler.act adds it on the live path).
-    outcome.setdefault("at", int(time.time()))
+    # A cached outcome from an older session can survive a rerun; the notice
+    # must describe THIS click. Re-read the actual connector for start/restart
+    # and stamp it now, before it reaches state.json.
+    outcome["at"] = int(time.time())
+    if outcome.get("ok") and outcome.get("action") in ("start", "restart"):
+        status = bootstrap.tunnel_status(port)
+        if status.get("pid"):
+            outcome["pid"] = status["pid"]
     sampler.last_action = outcome
     sampler.refresh()
     st.session_state.last_action = outcome
