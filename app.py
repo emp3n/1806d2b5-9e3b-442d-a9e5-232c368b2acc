@@ -17,10 +17,11 @@ this file:
    ``static/state.json``, which Streamlit serves itself at
    ``/app/static/state.json``. Same origin everywhere, so the card can poll it
    on a phone, from ``*.streamlit.app`` and from the operator's hostname;
-3. **the buttons** — Stop and Restart are real Streamlit buttons in this
-   process, not a POST to a port that may not exist. They act on the one
-   connector the sampler is reading, and the card shows the result a second
-   later because it reads the same probe.
+3. **the buttons** — Stop and Restart are the card's own round buttons, in the
+   card's header where the design puts them. A click asks this process for the
+   verb (``?rd=``), the verb runs here against the one connector the sampler
+   reads, and the card shows the outcome a second later because it reads the
+   same probe. A button never reports a result it did not get.
 
 ``?source=live`` (default) is the real connector; ``?source=sample`` keeps the
 lab's synthetic series and touches nothing.
@@ -50,9 +51,8 @@ VIEWS = ("overview", "services", "database", "shell", "logs")
 st.set_page_config(page_title="cloudflared — card study", layout="wide")
 
 # The study is one full-bleed surface: no Streamlit chrome, no page scroll, the
-# frame takes the whole window. The two controls are the exception — they are
-# positioned over the card's header, where the card has its own buttons drawn in
-# the design, so the page reads as one card and the buttons are real widgets.
+# frame takes the whole window. The Stop and Restart buttons are drawn by the
+# card itself (it is the design's own header), so nothing is docked over it.
 st.markdown(
     """<style>
     [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
@@ -71,38 +71,6 @@ st.markdown(
       iframe { height: 100dvh !important; }
     }
 
-    /* ---- the two controls, docked over the card's header ---- */
-    div[data-testid="stHorizontalBlock"] {
-      position: fixed !important; top: 16px; right: 20px; z-index: 100000;
-      display: flex !important; width: auto !important; gap: 8px !important;
-      align-items: center !important; padding: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-      width: auto !important; flex: 0 0 auto !important; min-width: 0 !important;
-      padding: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] {
-      width: auto !important; margin: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] button {
-      width: 40px !important; height: 40px !important; min-height: 40px !important;
-      padding: 0 !important; border-radius: 999px !important;
-      font-size: 15px !important; line-height: 1 !important;
-      display: flex !important; align-items: center !important; justify-content: center !important;
-      background: rgba(22, 24, 25, .55) !important; color: #E6E4DE !important;
-      border: 1px solid rgba(230, 228, 222, .22) !important;
-      backdrop-filter: blur(12px) saturate(120%);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, .22) !important;
-      transition: border-color .14s ease, background .14s ease, transform .14s ease;
-    }
-    div[data-testid="stHorizontalBlock"] button:hover {
-      border-color: rgba(230, 228, 222, .55) !important;
-      background: rgba(22, 24, 25, .8) !important; transform: translateY(-1px);
-    }
-    div[data-testid="stHorizontalBlock"] button:focus-visible {
-      outline: 2px solid #E3E2DE !important; outline-offset: 2px !important;
-    }
     /* a real tunnel failure has to be visible over the full-bleed frame */
     .rd-alert {
       position: fixed; left: 16px; bottom: 16px; z-index: 100000;
@@ -114,12 +82,6 @@ st.markdown(
     }
     .rd-alert b { display: block; margin-bottom: 2px; font-weight: 600; }
 
-    @media (prefers-color-scheme: light) {
-      div[data-testid="stHorizontalBlock"] button {
-        background: rgba(255, 255, 255, .72) !important; color: #161819 !important;
-        border-color: rgba(22, 24, 25, .18) !important;
-      }
-    }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -169,6 +131,29 @@ except Exception:  # noqa: BLE001 - no request context outside a script run
     page_host = ""
 served_through_tunnel = bool(page_host) and bootstrap.public_hostname() in page_host
 
+# The buttons are back on the card, and the card is an iframe: it cannot call
+# into this process. So a click reloads the page with ``?rd=<verb>`` and the verb
+# runs *here*, in the process that owns the connector — after which the card
+# paints whatever is true. The parameter is cleared first, so a reload can never
+# replay an action, and the app is the only thing that ever performs one.
+back_in_url = bootstrap.cloud_url()
+pending = (st.query_params.get("rd") or "").strip().lower()
+if pending:
+    st.query_params.clear()
+    if not use_live:
+        outcome = {"ok": False, "action": pending,
+                   "error": "the live source is off (?source=sample)"}
+    else:
+        outcome = statefeed.sampler(port).act(pending)
+    st.session_state.last_action = outcome
+    verb_pid = outcome.get("pid") or outcome.get("stopped")
+    if outcome.get("ok"):
+        st.toast(f"{pending} ok · pid {verb_pid}", icon="✅")
+    else:
+        st.toast(f"{pending} failed — "
+                 f"{outcome.get('error') or outcome.get('detail') or 'no detail'}",
+                 icon="⚠️")
+
 state: dict = {}
 feed: statefeed.Sampler | None = None
 tunnel: bootstrap.Tunnel | None = None
@@ -196,82 +181,8 @@ if use_live:
 else:
     state = build_state(tick, incident=incident)
 
-# ---- the controls ----------------------------------------------------------
-# Two round buttons over the card's header. Stop asks once when the page itself
-# arrives through the tunnel it would close, because closing it takes this very
-# page down and a reload cannot bring it back (the stop is remembered — see
-# bootstrap.desired_state). The confirmation therefore names the address that
-# does survive, and the arming expires: a confirmation left on screen for a
-# minute must not turn the next click into a stop.
-ARM_FOR_S = 45.0
+# ---- what the page says about the last verb -------------------------------
 last = st.session_state.get("last_action")
-
-
-def act(action: str) -> None:
-    if feed is None:
-        st.toast("live source is off: ?source=sample starts no process", icon="ℹ️")
-        return
-    result = feed.act(action)
-    st.session_state.last_action = result
-    st.session_state.arm = None
-    if result.get("ok"):
-        st.toast(f"{action} ok · pid {result.get('pid') or result.get('stopped')}",
-                 icon="✅")
-    else:
-        detail = result.get("error") or result.get("detail") or "no detail"
-        st.toast(f"{action} failed — {detail}", icon="⚠️")
-
-
-running = bool(state.get("found"))
-arm = st.session_state.get("arm")
-if arm and time.time() - float(st.session_state.get("arm_at") or 0) > ARM_FOR_S:
-    arm = st.session_state.arm = None
-
-back_in = bootstrap.cloud_url() or "the app's own *.streamlit.app address"
-
-with st.container():
-    if arm == "stop":
-        power, cancel = st.columns(2, gap="small")
-        with power:
-            if st.button("⏻", key="power_confirm", help="Yes — stop the connector now"):
-                act("stop")
-                st.rerun()
-        with cancel:
-            if st.button("✕", key="power_cancel", help="Keep it running"):
-                st.session_state.arm = None
-                st.rerun()
-        # said in a place that outlives the toast: this is the only route back
-        st.caption(f"⏻ stops the connector and closes "
-                   f"{bootstrap.public_hostname()}. Come back in at {back_in}.")
-    else:
-        power, restart = st.columns(2, gap="small")
-        with power:
-            if running:
-                if st.button("⏻", key="power_stop",
-                             help="Stop the connector. If this page arrived over the "
-                                  "tunnel, it closes with it"):
-                    if served_through_tunnel:
-                        st.session_state.arm = "stop"
-                        st.session_state.arm_at = time.time()
-                        st.toast(
-                            f"Stopping also closes {bootstrap.public_hostname()} — "
-                            f"this page is on that tunnel. Press ⏻ again to stop it "
-                            f"(restart later from {back_in}), or ✕ to keep it.",
-                            icon="⚠️")
-                        st.rerun()
-                    else:
-                        act("stop")
-                        st.rerun()
-            else:
-                if st.button("▶", key="power_start", help="Start the connector"):
-                    act("start")
-                    st.rerun()
-        with restart:
-            if st.button("⟳", key="power_restart",
-                         help="Replace the connector: the new one must register "
-                              "before the old one is stopped"):
-                act("restart")
-                st.rerun()
 
 # ---- the card --------------------------------------------------------------
 # The address is relative on purpose: the card resolves it against its own
@@ -284,7 +195,9 @@ page = (
     '<meta name="theme-color" content="#E3E2DE" media="(prefers-color-scheme: light)">'
     '<meta name="theme-color" content="#161819" media="(prefers-color-scheme: dark)">'
     f"<style>{THEME_CSS}</style></head><body>"
-    + render(state, theme=theme, view=view, state_url=state_url)
+    + render(state, theme=theme, view=view, state_url=state_url,
+             host=bootstrap.public_hostname() if served_through_tunnel else "",
+             back_in=back_in_url)
     + "</body></html>"
 )
 st.iframe(page, height=1000)

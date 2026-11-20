@@ -168,28 +168,58 @@ def test_the_card_only_promises_a_feed_when_one_exists():
     assert "data-feed" not in tag(sample)
 
 
-def test_stop_is_confirmed_in_the_shell_when_the_page_rides_the_tunnel():
-    """Stopping the connector from a page that arrives over its tunnel closes
-    the page too. The buttons are real Streamlit widgets in app.py now (the
-    card owns no HTTP endpoint), so the confirmation lives there."""
+def test_the_verbs_are_on_the_card_where_the_design_puts_them():
+    """Stop and Restart belong in the card's own header (they were there, and
+    they were moved out to the page corner by mistake)."""
+    markup = CARD.read_text()
+    assert '<div class="rd-verbs">' in markup
+    assert 'data-verb="power"' in markup and 'data-verb="restart"' in markup
+    assert markup.count('class="rd-round"') == 2
+    # the header order: mark, identity, verbs — the buttons sit at its right end
+    head = markup[markup.index('<header class="rd-head">'):markup.index("</header>")]
+    assert head.index("rd-id") < head.index("rd-verbs")
+    css = THEME.read_text()
+    assert ".rd-verbs { display: flex;" in css
+    assert ".rd-round.is-armed" in css and ".rd-round[aria-pressed=\"true\"]" in css
+
+
+def test_a_card_button_asks_the_app_instead_of_acting_itself():
+    """An iframe cannot start a process. The button must not pretend to: it asks
+    the app (?rd=<verb>), and the app is the only thing that performs a verb."""
+    assert "function fire(verb)" in SCRIPT
+    assert "url.searchParams.set('rd', verb)" in SCRIPT
+    assert "window.top.location.replace" in SCRIPT
+    # no second port, no action route, no key
+    assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
+    assert "data-action=" not in CARD.read_text()
+    # the app consumes the request and clears it, so a reload cannot replay it
+    shell = (CARD.parent / "app.py").read_text()
+    assert 'st.query_params.get("rd")' in shell
+    assert "st.query_params.clear()" in shell
+    assert "statefeed.sampler(port).act(pending)" in shell
+
+
+def test_stopping_from_the_tunnel_page_warns_first_and_names_the_way_back():
+    """Stopping the connector closes the page it was asked from, and the stop is
+    remembered — so the card has to say which name goes dark and where to return."""
+    assert "var RD_HOST" in SCRIPT and "var RD_BACK" in SCRIPT
+    assert "Stopping closes " in SCRIPT and "click again" in SCRIPT
+    assert "is-armed" in SCRIPT and "armTimer" in SCRIPT
+    # an armed button forgets itself; a confirmation left open is not a stop
+    assert "window.setTimeout(disarm, 5000)" in SCRIPT
     shell = (CARD.parent / "app.py").read_text()
     assert "served_through_tunnel" in shell
-    assert 'st.session_state.arm = "stop"' in shell
-    assert "this page is on that tunnel" in shell
-    # the cancel path is a button, not a timeout: the operator decides
-    assert "Keep it running" in shell
-    # ... and the confirmation says where to come back in, because the stop is
-    # remembered: this hostname stays dark until the connector is started again
-    assert "restart later from" in shell
-    assert "bootstrap.cloud_url()" in shell
-    # a confirmation left on screen must not turn a later click into a stop
-    assert "ARM_FOR_S" in shell and "arm_at" in shell
-    # and the card itself keeps no second source of truth about the process
-    assert "RD_ACTION" not in SCRIPT and "X-RD-Action" not in SCRIPT
+    assert "back_in=back_in_url" in shell and "bootstrap.cloud_url()" in shell
+
+
+def test_the_glyph_follows_the_process_not_the_click():
+    assert "function retitle(up)" in SCRIPT
+    # painted from the state the app reports, in both directions
+    assert SCRIPT.count("retitle(true)") == 1 and SCRIPT.count("retitle(false)") == 1
 
 
 def test_the_card_has_no_http_action_endpoint():
-    """One channel. The buttons act in the Streamlit process; the page only reads."""
+    """One channel. The card asks; the app acts; the state file answers."""
     assert "act(" not in SCRIPT
     assert "POST" not in SCRIPT.upper().replace("POSTER", "")
     assert "data-action=" not in CARD.read_text()

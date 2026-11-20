@@ -52,6 +52,9 @@ _ICONS = {
             '<path d="M13 19h8"/>',
     "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>'
             '<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    "power": '<path d="M12 3.5v8.5"/><path d="M7.4 6.6a7.6 7.6 0 1 0 9.2 0"/>',
+    "restart": '<path d="M20 9V7a2 2 0 0 0-2-2h-6"/><path d="m15 2-3 3 3 3"/>'
+               '<path d="M20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>',
 }
 
 VIEWS = (
@@ -112,6 +115,8 @@ def render(
     theme: str = "dark",
     view: str = "services",
     state_url: str | None = None,
+    host: str = "",
+    back_in: str = "",
 ) -> str:
     """The console.
 
@@ -119,6 +124,10 @@ def render(
     to the page's own origin: Streamlit serves ``static/state.json`` at
     ``/app/static/state.json``, so the same path works on localhost, on
     ``*.streamlit.app`` and behind the operator's hostname.
+
+    ``host`` is set when this page itself arrived through the tunnel, which is
+    the one case where stopping the connector also closes the page: the buttons
+    name it before they act, and ``back_in`` is the address that survives.
     """
     host = state["host"]
     live_text = f'{state["live"]} of 4 connections live'
@@ -150,6 +159,18 @@ def render(
           <h1 id="rd-title">cloudflared</h1>
           <p class="rd-status" data-status-text>{live_text}</p>
           <p class="rd-note" data-note{"" if note else " hidden"} title="{note}">{note}</p>
+        </div>
+        <!-- The verbs live on the card, where they were: two round buttons in
+             the header. They cannot start a process from inside an iframe, and
+             they do not pretend to — a click asks the app (see fire()) and the
+             app either does it or names why not. -->
+        <div class="rd-verbs">
+          <button type="button" class="rd-round" data-verb="power" aria-pressed="true"
+                  aria-label="Stop the connector">
+            {icon("power")}<span class="rd-tip" aria-hidden="true">Stop</span></button>
+          <button type="button" class="rd-round" data-verb="restart"
+                  aria-label="Restart the connector">
+            {icon("restart")}<span class="rd-tip" aria-hidden="true">Restart</span></button>
         </div>
       </header>
 
@@ -226,6 +247,11 @@ def render(
   var RD_SPARK = {spark_geo};
   var RD_LIVE = {json.dumps(live_text)};
   var RD_API = {json.dumps(state_url)};
+  /* empty unless this page itself arrived through the tunnel: that is the one
+     case where stopping the connector closes the page, so the button says so
+     first and names the address that survives (RD_BACK) */
+  var RD_HOST = {json.dumps(host)};
+  var RD_BACK = {json.dumps(back_in)};
   /* the heartbeat is written by the sampler thread once a second; a payload
      whose stamp is older than this means the sampler stopped, not that the
      numbers are still true */
@@ -564,6 +590,85 @@ def render(
       card.setAttribute('data-feed', 'stalled');
       return ' · stalled ' + age + 's';
     }}
+    /* ---- the verbs: the card asks, the app answers ----
+       A button in this iframe cannot start a process and must not claim it did.
+       A click navigates this page to ``?rd=<verb>``; app.py runs the verb in the
+       Streamlit process, reports the outcome and clears the parameter. The card
+       then paints whatever is true — so the button can be wrong about nothing. */
+    var powerBtn = document.querySelector('[data-verb="power"]');
+    var restartBtn = document.querySelector('[data-verb="restart"]');
+    var armTimer = null;
+
+    function retitle(up) {{
+      if (!powerBtn) return;
+      powerBtn.setAttribute('aria-pressed', String(up));
+      powerBtn.setAttribute('aria-label', up ? 'Stop the connector'
+                                            : 'Start the connector');
+      var tip = powerBtn.querySelector('.rd-tip');
+      if (tip && !powerBtn.classList.contains('is-armed')) {{
+        tip.textContent = up ? 'Stop' : 'Start';
+      }}
+    }}
+
+    function disarm() {{
+      window.clearTimeout(armTimer);
+      armTimer = null;
+      [powerBtn, restartBtn].forEach(function (button) {{
+        if (button) button.classList.remove('is-armed');
+      }});
+      retitle(card.getAttribute('data-link') !== 'gone');
+      var tip = restartBtn && restartBtn.querySelector('.rd-tip');
+      if (tip) tip.textContent = 'Restart';
+    }}
+
+    function fire(verb) {{
+      var here = window.top.location.href;
+      try {{
+        var url = new URL(here);
+        url.searchParams.set('rd', verb);
+        /* replace, not assign: the page before the action is not somewhere the
+           back button should return to and replay */
+        window.top.location.replace(url.toString());
+      }} catch (err) {{
+        window.top.location.href = here.split('#')[0].split('?')[0] + '?rd=' + verb;
+      }}
+    }}
+
+    if (powerBtn) {{
+      powerBtn.addEventListener('click', function () {{
+        var up = card.getAttribute('data-link') !== 'gone';
+        if (up && RD_HOST && !powerBtn.classList.contains('is-armed')) {{
+          /* the tunnel this page travels through is the thing being stopped */
+          powerBtn.classList.add('is-armed');
+          var tip = powerBtn.querySelector('.rd-tip');
+          if (tip) tip.textContent = 'Click again';
+          say('Stopping closes ' + RD_HOST + ' — click again'
+              + (RD_BACK ? '. Come back at ' + RD_BACK : ''));
+          armTimer = window.setTimeout(disarm, 5000);
+          return;
+        }}
+        disarm();
+        say(up ? 'Stopping…' : 'Starting…');
+        fire(up ? 'stop' : 'start');
+      }});
+    }}
+
+    if (restartBtn) {{
+      restartBtn.addEventListener('click', function () {{
+        if (restartBtn.classList.contains('is-armed')) {{
+          disarm();
+          say('Restarting…');
+          fire('restart');
+          return;
+        }}
+        restartBtn.classList.add('is-armed');
+        var tip = restartBtn.querySelector('.rd-tip');
+        if (tip) tip.textContent = 'Click again';
+        say('Restart: the new connector must register before the old one stops');
+        armTimer = window.setTimeout(disarm, 5000);
+      }});
+    }}
+
     function apply(data) {{
       /* an answer is an answer: whatever it says about the process, the feed
          itself is back, so the stale look comes off here and nowhere else */
@@ -583,6 +688,7 @@ def render(
           if (gone) {{ gone.hidden = true; gone.textContent = ''; }}
           blank();
           set('[data-source]', 'live · no cloudflared process' + beat(data));
+        retitle(false);
         }}
         return;
       }}
@@ -602,6 +708,7 @@ def render(
       set('[data-version]', data.version);
       set('[data-path]', data.path);
       set('[data-source]', data.source_label + beat(data));
+      retitle(true);
       var copyBtn = document.querySelector('[data-copy]');
       if (copyBtn && data.path) copyBtn.setAttribute('data-copy', data.path);
       sparks.forEach(function (spark) {{

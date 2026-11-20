@@ -223,6 +223,22 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 /* The card owns no buttons: Stop and Restart are Streamlit widgets, docked over
    this header by app.py. What is left here is the tooltip that the path chip
    still uses. */
+/* the verbs: two round buttons in the card's own header, where they were */
+.rd-verbs { display: flex; gap: 4px; flex: none; }
+.rd-round {
+  position: relative; width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; flex: none;
+  background: var(--raised); color: var(--muted);
+  transition: background-color var(--fast), color var(--fast);
+}
+.rd-round svg {
+  width: 17px; height: 17px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.rd-round:hover { background: var(--sunken); color: var(--text); }
+.rd-round[aria-pressed="true"] { color: var(--text); }
+.rd-round.is-armed { background: var(--crit); color: var(--card); }
+.rd-round.is-busy svg { animation: rd-spin 700ms linear infinite; }
 .rd-tip {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 4;
   padding: 4px 8px; border-radius: 8px; white-space: nowrap;
@@ -231,7 +247,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
   opacity: 0; transform: translateY(-4px);
   transition: opacity var(--fast), transform var(--fast);
 }
-.rd-copy:hover .rd-tip, .rd-copy:focus-visible .rd-tip { opacity: 1; transform: none; }
+.rd-copy:hover .rd-tip, .rd-copy:focus-visible .rd-tip,
+.rd-round:hover .rd-tip, .rd-round:focus-visible .rd-tip { opacity: 1; transform: none; }
 
 /* ---------- facts: the two chips, no dots ---------- */
 .rd-facts { display: flex; flex-wrap: wrap; gap: 6px; }
