@@ -540,3 +540,20 @@ def test_memory_budget_falls_back_to_the_panel_convention(fake_proc, monkeypatch
     state = collector.state()
     assert state["mem_budget"] == "256 MB"  # the cgroup here says "max"
     assert state["mem_scale"] == 256.0
+
+
+def test_a_tokenless_quick_tunnel_is_a_real_connector():
+    """The deployed app starts `cloudflared tunnel --url ...`, with no `run`
+    subcommand. It is still the connector the card must read."""
+    assert live.is_tunnel_run([
+        "/mount/src/app/.temp/cloudflared", "tunnel",
+        "--url", "http://127.0.0.1:8598",
+        "--metrics", "127.0.0.1:20241",
+    ])
+    # and the old token form still counts
+    assert live.is_tunnel_run([
+        "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "run",
+        "--token-file", "/tmp/cf-token",
+    ])
+    # an unrelated cloudflared command is not a connector
+    assert not live.is_tunnel_run(["cloudflared", "--version"])

@@ -47,7 +47,7 @@ def test_download_lands_in_the_temp_folder(tmp_path, monkeypatch):
     assert binary == bootstrap.runtime_dir() / "cloudflared"
     assert binary.stat().st_size == 1_100_000
     assert binary.stat().st_mode & 0o111
-    assert called[0][1] == 90
+    assert called[0][1] == 25
     # a second call reuses the binary; nothing is fetched twice
     assert bootstrap.download(opener=fake_open) == binary
     assert len(called) == 1
