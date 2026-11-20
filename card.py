@@ -124,6 +124,7 @@ def render(
     state: dict[str, Any],
     *,
     theme: str = "dark",
+    palette: str = "linen",
     view: str = "services",
     state_url: str | None = None,
     tunnel_host: str = "",
@@ -241,7 +242,7 @@ def render(
         separators=(",", ":"),
     )
 
-    return f"""<div class="rd-stage" data-theme="{theme}">
+    return f"""<div class="rd-stage" data-theme="{theme}" data-palette="{palette}">
   <div class="rd-frame">
     <main class="rd-view">
       {stub("overview")}

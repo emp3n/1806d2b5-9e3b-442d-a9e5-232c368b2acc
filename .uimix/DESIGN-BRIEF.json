@@ -1,7 +1,7 @@
 {
  "$schema": "uimixes-design-brief-1",
  "created": "2026-11-19T06:00:21+00:00",
- "updated": "2026-11-19T17:56:20+00:00",
+ "updated": "2026-11-20T21:36:33+00:00",
  "answers": {
   "job": "A single cloudflared service card for the operator of an internal Streamlit console; read health and act on it",
   "surface": "dashboard",
@@ -40,7 +40,7 @@
    "disabled",
    "offline / stale"
   ],
-  "theme": "you choose from the brand description",
+  "theme": "three curated palettes: Linen (warm neutral), Slate (cool neutral), Moss (green neutral); each with light and dark; selected by ?palette=",
   "references": "the supplied cloudflared screenshot; Russo One + Golos Text; anti-slop design articles from the web",
   "constraints": "only one card; dark/light switch; no real backend, no tokens; Streamlit 1.64 st.iframe",
   "stack": "other (say which)",
@@ -354,6 +354,18 @@
   },
   {
    "at": "2026-11-19T17:56:20+00:00",
+   "id": "modes",
+   "value": "light + dark, chosen by the URL; no switch on the card",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-20T21:36:33+00:00",
+   "id": "theme",
+   "value": "three curated palettes: Linen (warm neutral), Slate (cool neutral), Moss (green neutral); each with light and dark; selected by ?palette=",
+   "by": "agent"
+  },
+  {
+   "at": "2026-11-20T21:36:33+00:00",
    "id": "modes",
    "value": "light + dark, chosen by the URL; no switch on the card",
    "by": "agent"

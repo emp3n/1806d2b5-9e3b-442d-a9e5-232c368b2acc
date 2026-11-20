@@ -9,7 +9,28 @@ are computed. Fonts are embedded as data URLs — no network, no route.
 import base64
 from pathlib import Path
 
+from palette import DEFAULT_PALETTE, PALETTES, semantic_tokens
+
 _STATIC = Path(__file__).resolve().parent / "static"
+
+
+def _block(selector: str, tokens: dict[str, str], extra: str = "") -> str:
+    lines = "\n".join(f"  {key}: {value};" for key, value in tokens.items())
+    return f"{selector} {{\n{lines}\n{extra}}}\n"
+
+
+def _token_css() -> str:
+    """Semantic layer: one block per palette and mode, no hex in selectors."""
+    out = [_block(":root", semantic_tokens(DEFAULT_PALETTE, "light"))]
+    for name in PALETTES:
+        out.append(_block(f'.rd-stage[data-palette="{name}"]',
+                          semantic_tokens(name, "light"), "  color-scheme: light;\n"))
+        out.append(_block(f'.rd-stage[data-palette="{name}"][data-theme="dark"]',
+                          semantic_tokens(name, "dark"), "  color-scheme: dark;\n"))
+        auto = _block(f'.rd-stage[data-palette="{name}"][data-theme="auto"]',
+                      semantic_tokens(name, "dark"), "  color-scheme: dark;\n")
+        out.append("@media (prefers-color-scheme: dark) {\n" + auto + "}\n")
+    return "\n".join(out)
 
 
 def _font(name: str) -> str:
@@ -47,102 +68,24 @@ THEME_CSS = r"""
 
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: transparent; }
 
-/* roles are literal per mode. Derived values live on .rd-stage so a var()
-   inside them resolves against the mode that is actually selected. `auto`
-   follows the OS; a theme named in the URL forces one and nothing else. */
-:root {
-  --surface: #F4F3EF;
-  --text: #171A19;
-  --muted: #5E5F5D;
-  --primary: #A84216;
-  --on-primary: #FFFFFF;
-  --border: #D6D4CC;
-  --focus: #A84216;
-  --ok: #26714E;
-  --warn: #8A5E0C;
-  --hot: #B4511C;
-  --crit: #A2281E;
-  --mem: #5B4A93;
-  --brand: #F6821F;
-  --on-brand: #FFFFFF;
-  --row: 32px;
-  color-scheme: light;
-}
+__TOKEN_BLOCKS__
 
 .rd-stage {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--text) 26%, transparent) transparent;
-  --card: color-mix(in srgb, white 86%, var(--surface));
-  --stage: color-mix(in srgb, black 7%, var(--surface));
-  --raised: color-mix(in srgb, var(--text) 5%, var(--card));
-  --sunken: color-mix(in srgb, var(--text) 10%, var(--card));
-  --veil: color-mix(in srgb, var(--text) 30%, transparent);
-  --ok-tint: color-mix(in srgb, var(--ok) 13%, var(--surface));
-  --cpu-tint: color-mix(in srgb, var(--ok) 12%, var(--surface));
-  --mem-tint: color-mix(in srgb, var(--mem) 16%, var(--surface));
-  --acc-tint: color-mix(in srgb, var(--primary) 10%, var(--surface));
-  --slab: color-mix(in srgb, var(--text) 7%, var(--card));
-  --knob: var(--card);
+  /* STATIC structure only: colour comes from the generated semantic blocks. */
   --shadow: 0 12px 40px -20px rgb(23 26 25 / 34%);
   --shadow-tip: 0 6px 18px -8px rgb(23 26 25 / 42%);
+  --row: 32px;             /* compact density from the brief */
   --fast: 140ms ease-out;
   --slow: 260ms ease-out;
-  /* the phone dock is 76 px tall (10 + 56 + 10): one token, used by the stage's
-     bottom padding and by the toast that must clear it */
   --dock: 76px;
   display: flex; justify-content: center; align-items: center;
-  box-sizing: border-box;  /* the padding must come out of 100vh, not be added */
+  box-sizing: border-box;
   height: 100vh; padding: 24px 16px; overflow: hidden;
   background: var(--stage); color: var(--text);
   overscroll-behavior: contain;
   font-family: "RD Golos", system-ui, sans-serif; font-size: 13px; line-height: 1.45;
-}
-
-/* the dark values, written once per selector that can select them: an explicit
-   `dark`, and `auto` when the OS already says dark */
-.rd-stage[data-theme="dark"] {
-  --surface: #1F2224;
-  --text: #F0EFEA;
-  --muted: #ADADAB;
-  --primary: #FF914D;
-  --on-primary: #1F2224;
-  --border: #3B3F41;
-  --focus: #FF914D;
-  --ok: #57C99B;
-  --warn: #E4B04A;
-  --hot: #FF914D;
-  --crit: #FF7263;
-  --mem: #B6A3E8;
-  --card: var(--surface);
-  --raised: color-mix(in srgb, white 6%, var(--card));
-  --sunken: color-mix(in srgb, white 11%, var(--card));
-  --slab: color-mix(in srgb, white 7%, var(--card));
-  --knob: color-mix(in srgb, white 15%, var(--card));
-  --shadow: 0 14px 44px -22px rgb(0 0 0 / 62%);
-  --shadow-tip: 0 6px 18px -8px rgb(0 0 0 / 66%);
-  color-scheme: dark;
-}
-@media (prefers-color-scheme: dark) {
-  .rd-stage[data-theme="auto"] {
-    --surface: #1F2224;
-    --text: #F0EFEA;
-    --muted: #ADADAB;
-    --primary: #FF914D;
-    --on-primary: #1F2224;
-    --border: #3B3F41;
-    --focus: #FF914D;
-    --ok: #57C99B;
-    --warn: #E4B04A;
-    --hot: #FF914D;
-    --crit: #FF7263;
-    --mem: #B6A3E8;
-    --card: var(--surface);
-    --raised: color-mix(in srgb, white 6%, var(--card));
-    --sunken: color-mix(in srgb, white 11%, var(--card));
-    --shadow: 0 14px 44px -22px rgb(0 0 0 / 62%);
-    --shadow-tip: 0 6px 18px -8px rgb(0 0 0 / 66%);
-    color-scheme: dark;
-  }
 }
 
 /* A scrollbar is not the browser's default grey slab: same tokens as the card.
@@ -456,7 +399,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
   .rd-tab:hover .rd-tab-dot { transform: none; color: var(--muted); background: var(--raised); border-color: var(--border); box-shadow: none; }
   .rd-tab[aria-pressed="true"] .rd-tab-dot { background: var(--text); color: var(--card); border-color: var(--text); }
 }
-""".replace("__GOLOS_CYR__", _font("golos-cyr.woff2")) \
+""".replace("__TOKEN_BLOCKS__", _token_css()) \
+  .replace("__GOLOS_CYR__", _font("golos-cyr.woff2")) \
   .replace("__GOLOS_LAT__", _font("golos-lat.woff2")) \
   .replace("__RUSSO_CYR__", _font("russo-cyr.woff2")) \
   .replace("__RUSSO_LAT__", _font("russo-lat.woff2"))

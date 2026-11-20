@@ -27,7 +27,8 @@ this file:
 lab's synthetic series and touches nothing.
 
 Query parameters: ``section=overview|services|database|shell|logs``,
-``theme=light|dark|auto`` (auto follows the OS), ``incident=0|1``, ``tick=N``,
+``theme=light|dark|auto`` (auto follows the OS), ``palette=linen|slate|moss``,
+``incident=0|1``, ``tick=N``,
 ``source=live|sample``.
 """
 
@@ -44,6 +45,7 @@ import statefeed
 from card import render
 from demo_data import build_state
 from live import idle_state
+from palette import DEFAULT_PALETTE, PALETTES, semantic_tokens
 from theme import THEME_CSS
 
 VIEWS = ("overview", "services", "database", "shell", "logs")
@@ -100,6 +102,11 @@ params = st.query_params
 theme = str(params.get("theme", "dark")).lower()
 if theme not in ("light", "dark", "auto"):
     theme = "dark"
+palette = str(params.get("palette", DEFAULT_PALETTE)).lower()
+if palette not in PALETTES:
+    palette = DEFAULT_PALETTE
+meta_light = semantic_tokens(palette, "light")["--card"]
+meta_dark = semantic_tokens(palette, "dark")["--card"]
 incident = str(params.get("incident", "0")) == "1"
 try:
     tick = max(0, min(1000, int(str(params.get("tick", "0")))))
@@ -223,10 +230,10 @@ state_url = bootstrap.CARD_STATE_PATH
 
 page = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-    '<meta name="theme-color" content="#E3E2DE" media="(prefers-color-scheme: light)">'
-    '<meta name="theme-color" content="#161819" media="(prefers-color-scheme: dark)">'
+    f'<meta name="theme-color" content="{meta_light}" media="(prefers-color-scheme: light)">'
+    f'<meta name="theme-color" content="{meta_dark}" media="(prefers-color-scheme: dark)">'
     f"<style>{THEME_CSS}</style></head><body>"
-    + render(state, theme=theme, view=view, state_url=state_url,
+    + render(state, theme=theme, palette=palette, view=view, state_url=state_url,
              tunnel_host=bootstrap.public_hostname() if served_through_tunnel else "",
              back_in=back_in_url)
     + "</body></html>"
