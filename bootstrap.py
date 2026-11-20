@@ -64,6 +64,10 @@ STATE_PATH = "/app/static/state.json"
 # The operator's own hostname, i.e. the public hostname the tunnel carries.
 DEFAULT_HOSTNAME = "streamlit.idealis.cc"
 
+# Where the deployment's own *.streamlit.app address comes from. The tunnel
+# hostname dies with the connector; this one does not, so it is the way back.
+URL_KEYS = ("CARD_CLOUD_URL", "STREAMLIT_APP_URL")
+
 # How long a registered tunnel may fail to answer before it is replaced.
 STUCK_AFTER = 180.0
 # A cached tunnel is re-probed at most this often: a rerun must not pay a round
@@ -220,6 +224,20 @@ def public_hostname(settings=None) -> str:
     raw = raw or DEFAULT_HOSTNAME
     raw = raw.strip().removeprefix("https://").removeprefix("http://").strip("/")
     return raw
+
+
+def cloud_url(settings=None) -> str:
+    """The deployment's own ``*.streamlit.app`` address, if it is configured.
+
+    Stopping the connector takes the tunnel hostname down with it, so the page
+    has to name an address that survives that — otherwise "stopped by you" is a
+    dead end and the operator is left with a 530 and no way back in.
+    """
+    for key in URL_KEYS:
+        value = _lookup(key, settings)
+        if value:
+            return str(value).strip().rstrip("/")
+    return ""
 
 
 def ingress_port(settings=None) -> int:

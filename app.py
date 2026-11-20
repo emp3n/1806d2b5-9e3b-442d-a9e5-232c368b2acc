@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import html
 import os
+import time
 
 import streamlit as st
 
@@ -197,8 +198,12 @@ else:
 
 # ---- the controls ----------------------------------------------------------
 # Two round buttons over the card's header. Stop asks once when the page itself
-# arrives through the tunnel it would close (a reload then brings the connector
-# back, because ensure_tunnel starts it); everything else is one click.
+# arrives through the tunnel it would close, because closing it takes this very
+# page down and a reload cannot bring it back (the stop is remembered — see
+# bootstrap.desired_state). The confirmation therefore names the address that
+# does survive, and the arming expires: a confirmation left on screen for a
+# minute must not turn the next click into a stop.
+ARM_FOR_S = 45.0
 last = st.session_state.get("last_action")
 
 
@@ -219,6 +224,10 @@ def act(action: str) -> None:
 
 running = bool(state.get("found"))
 arm = st.session_state.get("arm")
+if arm and time.time() - float(st.session_state.get("arm_at") or 0) > ARM_FOR_S:
+    arm = st.session_state.arm = None
+
+back_in = bootstrap.cloud_url() or "the app's own *.streamlit.app address"
 
 with st.container():
     if arm == "stop":
@@ -231,17 +240,24 @@ with st.container():
             if st.button("✕", key="power_cancel", help="Keep it running"):
                 st.session_state.arm = None
                 st.rerun()
+        # said in a place that outlives the toast: this is the only route back
+        st.caption(f"⏻ stops the connector and closes "
+                   f"{bootstrap.public_hostname()}. Come back in at {back_in}.")
     else:
         power, restart = st.columns(2, gap="small")
         with power:
             if running:
                 if st.button("⏻", key="power_stop",
-                             help="Stop the connector (this page dies with it if you "
-                                  "are on the tunnel hostname)"):
+                             help="Stop the connector. If this page arrived over the "
+                                  "tunnel, it closes with it"):
                     if served_through_tunnel:
                         st.session_state.arm = "stop"
-                        st.toast("This page travels through that tunnel — press ⏻ "
-                                 "again to close it, or ✕ to keep it.", icon="⚠️")
+                        st.session_state.arm_at = time.time()
+                        st.toast(
+                            f"Stopping also closes {bootstrap.public_hostname()} — "
+                            f"this page is on that tunnel. Press ⏻ again to stop it "
+                            f"(restart later from {back_in}), or ✕ to keep it.",
+                            icon="⚠️")
                         st.rerun()
                     else:
                         act("stop")

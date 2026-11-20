@@ -166,9 +166,15 @@ def test_stop_is_confirmed_in_the_shell_when_the_page_rides_the_tunnel():
     shell = (CARD.parent / "app.py").read_text()
     assert "served_through_tunnel" in shell
     assert 'st.session_state.arm = "stop"' in shell
-    assert "This page travels through that tunnel" in shell
+    assert "this page is on that tunnel" in shell
     # the cancel path is a button, not a timeout: the operator decides
     assert "Keep it running" in shell
+    # ... and the confirmation says where to come back in, because the stop is
+    # remembered: this hostname stays dark until the connector is started again
+    assert "restart later from" in shell
+    assert "bootstrap.cloud_url()" in shell
+    # a confirmation left on screen must not turn a later click into a stop
+    assert "ARM_FOR_S" in shell and "arm_at" in shell
     # and the card itself keeps no second source of truth about the process
     assert "RD_ACTION" not in SCRIPT and "X-RD-Action" not in SCRIPT
 
