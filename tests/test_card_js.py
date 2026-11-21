@@ -210,7 +210,7 @@ def test_shard_is_its_own_chip_beside_origin_not_inside_it():
     state["shard"] = "shard-3"
     page = render(state, theme="dark")
     start = page.index('<div class="rd-facts">')
-    facts = page[start:page.index('</div>', start)]
+    facts = page[start:page.index('<div class="rd-measures">')]
     origin_chip = facts[facts.index('data-tone="origin"'):facts.index('data-tone="shard"')]
 
     # origin keeps its flag + city, and no shard inside it
@@ -247,7 +247,7 @@ def test_connections_chip_sits_in_the_edges_row():
     state["connections"] = 5
     page = render(state, theme="dark")
     start = page.index('<div class="rd-facts">')
-    facts = page[start:page.index('</div>', start)]
+    facts = page[start:page.index('<div class="rd-measures">')]
     assert facts.index('data-edge-list') < facts.index('data-tone="connections"')
     # the Edges label is gone so every code + mini flag fits on one line
     assert '<em>Edges</em>' not in facts
@@ -261,7 +261,22 @@ def test_connections_chip_sits_in_the_edges_row():
     assert "function paintConnections(data)" in SCRIPT
     assert "paintConnections(data);" in SCRIPT and "paintConnections({{}});" in SCRIPT
     assert "set('[data-connections]', String((data && data.connections) || 0))" in SCRIPT
-    assert "var BEAT = 250" in SCRIPT
+    assert "var BEAT = 500" in SCRIPT
+
+
+def test_rows_size_the_origin_not_the_shard():
+    css = THEME.read_text()
+    assert ".rd-facts { display: flex; flex-direction: column;" in css
+    assert ".rd-fact-row > .rd-fact:first-child { flex: 1 1 auto; }" in css
+    assert ".rd-fact-row > .rd-fact:last-child { flex: 0 0 auto; }" in css
+    facts_rule = css[css.index('.rd-facts {'):css.index('.rd-fact-row {')]
+    assert "grid" not in facts_rule
+
+
+def test_paint_geo_does_not_rebuild_flags_on_every_poll():
+    assert "var flagSig = '', edgeSig = ''" in SCRIPT
+    assert "if (cc !== flagSig)" in SCRIPT
+    assert "if (sig === edgeSig) return;" in SCRIPT
 
 
 def test_geo_paint_is_guarded_against_injected_codes():

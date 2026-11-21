@@ -78,7 +78,7 @@ def test_the_payload_carries_the_active_connection_count():
     """The count comes from the tunnel's live sockets, not /ready or HA gauges."""
     payload = statefeed.to_payload(full_state(connections=5))
     assert payload["connections"] == 5
-    assert statefeed.INTERVAL == 0.25
+    assert statefeed.INTERVAL == 0.5
     assert "conn_live" not in payload and "conn_ha" not in payload
 
 

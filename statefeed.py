@@ -35,7 +35,7 @@ from live import Collector
 import geo
 from resources import available_cores, cores_text
 
-INTERVAL = 0.25
+INTERVAL = 0.5
 FILENAME = "state.json"
 
 # Starlette's stream_file() takes Content-Length from stat() and only then reads

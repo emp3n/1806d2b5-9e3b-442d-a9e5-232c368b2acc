@@ -217,18 +217,22 @@ def render(
       </header>
 
       <div class="rd-facts">
-        <span class="rd-fact" data-tone="origin">
-          <em>Origin</em><span data-fact="origin">{esc(state["edge_ip"])}</span>
-          <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
-          <span class="rd-geo" data-origin-geo>{esc(geo_city(state.get("origin_geo", {})))}</span>
-        </span>
-        <span class="rd-fact" data-tone="shard"><span data-shard>{esc(state.get("shard", ""))}</span></span>
-        <span class="rd-fact">
-          <span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
-        </span>
-        <span class="rd-fact" data-tone="connections">
-          <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
-        </span>
+        <div class="rd-fact-row">
+          <span class="rd-fact" data-tone="origin">
+            <em>Origin</em><span data-fact="origin">{esc(state["edge_ip"])}</span>
+            <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
+            <span class="rd-geo" data-origin-geo>{esc(geo_city(state.get("origin_geo", {})))}</span>
+          </span>
+          <span class="rd-fact" data-tone="shard"><span data-shard>{esc(state.get("shard", ""))}</span></span>
+        </div>
+        <div class="rd-fact-row">
+          <span class="rd-fact">
+            <span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
+          </span>
+          <span class="rd-fact" data-tone="connections">
+            <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
+          </span>
+        </div>
       </div>
 
       <div class="rd-measures">
@@ -316,6 +320,7 @@ def render(
     var card = document.querySelector('.rd-card');
     var toast = document.getElementById('rd-toast');
     var unit = 'MB';
+    var flagSig = '', edgeSig = '';
     var W = 100, H = 24, PAD = 3;
 
     function say(text, tone) {{
@@ -339,17 +344,25 @@ def render(
     }}
     function paintGeo(data) {{
       var g = data && data.origin_geo;
-      var slot = document.querySelector('[data-origin-flag]');
-      if (slot) {{
-        slot.textContent = '';
-        if (g && /^[A-Z]{{2}}$/.test(g.cc || '')) slot.appendChild(flagNode(g.cc, false));
+      var cc = (g && /^[A-Z]{{2}}$/.test(g.cc || '')) ? g.cc : '';
+      if (cc !== flagSig) {{
+        flagSig = cc;
+        var slot = document.querySelector('[data-origin-flag]');
+        if (slot) {{
+          slot.textContent = '';
+          if (cc) slot.appendChild(flagNode(cc, false));
+        }}
       }}
       set('[data-origin-geo]', g ? (g.city || g.region || '') : '');
       set('[data-shard]', (data && data.shard) || '');
+      var edges = (data && data.edges_geo) || [];
+      var sig = edges.map(function (e) {{ return (e.code || '') + ':' + (e.cc || ''); }}).join('|')
+                + '#' + ((data && data.edges) || '');
+      if (sig === edgeSig) return;
+      edgeSig = sig;
       var list = document.querySelector('[data-edge-list]');
       if (list) {{
         list.textContent = '';
-        var edges = (data && data.edges_geo) || [];
         edges.forEach(function (item, index) {{
           if (index) list.appendChild(document.createTextNode(', '));
           var wrap = document.createElement('span');
@@ -849,7 +862,7 @@ def render(
        is a chain now (a slow reply cannot stack up behind the next one), it
        backs off while the feed is gone, it resumes the moment the page comes
        back, and it names the failure instead of freezing on it. */
-    var BEAT = 250, PATIENCE = 4000, CEILING = 10000;
+    var BEAT = 500, PATIENCE = 4000, CEILING = 10000;
     var misses = 0, beatTimer = null, lastActionAt = '';
 
     function lose() {{

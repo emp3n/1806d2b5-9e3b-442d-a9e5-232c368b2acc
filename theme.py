@@ -194,16 +194,18 @@ __TOKEN_BLOCKS__
 .rd-round:hover .rd-tip, .rd-round:focus-visible .rd-tip { opacity: 1; transform: none; }
 
 /* ---------- facts: the two chips, no dots ---------- */
-/* two explicit rows: Origin | shard, then Edges | connections. A plain
-   flex-wrap let the long "connections" label drop to a third line. */
-.rd-facts {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px; align-items: start;
-}
+/* Two independent rows. A shared 2-column grid sized the "shard" cell by the
+   wider "connections" chip below it, wasting ~45px and squeezing Origin until
+   the city wrapped. Each row now sizes its own right chip to its content. */
+.rd-facts { display: flex; flex-direction: column; gap: 6px; }
+.rd-fact-row { display: flex; align-items: flex-start; gap: 6px; }
 .rd-fact {
   min-width: 0; padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
 }
+.rd-fact-row > .rd-fact:first-child { flex: 1 1 auto; }
+.rd-fact-row > .rd-fact:last-child { flex: 0 0 auto; }
+.rd-geo { max-width: none; }
 .rd-fact { gap: 7px; }
 .rd-fact em { font-style: normal; margin-right: 6px; color: var(--muted); }
 /* Local SVG flags only: no CDN, no PNG, no layout shift. The origin flag sits
@@ -219,7 +221,7 @@ __TOKEN_BLOCKS__
 }
 .rd-geo {
   font-size: 11px; color: var(--muted); white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; max-width: 112px;
+  overflow: hidden; text-overflow: ellipsis;
 }
 /* the shard is its own chip, the same size and type as Origin/Edges */
 .rd-fact[data-tone="shard"] { font-variant-numeric: tabular-nums; }
