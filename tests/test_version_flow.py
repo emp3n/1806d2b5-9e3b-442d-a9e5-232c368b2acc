@@ -29,6 +29,7 @@ def test_choice_never_stops_or_starts_the_connector(monkeypatch, tmp_path):
 def test_background_install_reaches_ready(monkeypatch, tmp_path):
     monkeypatch.setattr(bootstrap, "download",
                         lambda *a, **k: Path("bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "supports_token_tunnels", lambda p: True)
     bootstrap._INSTALL.update(version="", state="idle", detail="")
     status = bootstrap.start_install("2026.10.4")
     assert status["state"] in ("downloading", "ready")
@@ -91,8 +92,8 @@ def test_js_reacts_to_the_background_install():
     assert "data.install" in SCRIPT
     assert "data-version-progress" in SCRIPT
     assert "data-version-note" not in SCRIPT
-    assert "is-downloading" in SCRIPT and "is-ready" in SCRIPT
-    assert "Ready" not in SCRIPT and "Downloading" not in SCRIPT
+    assert "is-ready" in SCRIPT and "install.total" in SCRIPT
+    assert "Ready ·" not in SCRIPT and "Downloading " not in SCRIPT
 
 
 def test_a_second_click_while_downloading_does_not_stack_jobs(monkeypatch):

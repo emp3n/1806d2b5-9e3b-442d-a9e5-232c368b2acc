@@ -121,6 +121,15 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       }});
     }}
     /* ---- version picker: a full-width panel that grows the card ---- */
+    var readyTimer = null;
+    function clearReady() {{
+      var box = document.querySelector('[data-tone="version"]');
+      if (box) box.classList.remove('is-ready');
+      readyTimer = null;
+    }}
+    /* any focus change dismisses the confirmation right away */
+    document.addEventListener('blur', clearReady, true);
+    document.addEventListener('focusin', clearReady, true);
     function closeVersionMenu() {{
       var box = document.querySelector('[data-tone="version"]');
       var btn = document.querySelector('[data-version-toggle]');
@@ -173,17 +182,22 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       if (val.textContent !== chosen) val.textContent = chosen;
       var box = document.querySelector('[data-tone="version"]');
       var progress = document.querySelector('[data-version-progress]');
+      var bar = document.querySelector('[data-version-bar]');
       var install = data && data.install;
-      if (box && progress && install) {{
+      if (box && progress && bar && install) {{
         var state = install.state;
-        progress.hidden = state !== 'downloading';
-        box.classList.toggle('is-downloading', state === 'downloading');
-        box.classList.toggle('is-error', state === 'error');
-        /* the green confirmation is a moment, not a sentence that stays */
-        if (state === 'ready' && !box.classList.contains('is-ready')) {{
+        var busy = state === 'downloading';
+        progress.hidden = !busy;
+        if (busy) {{
+          var total = Number(install.total) || 0, read = Number(install.read) || 0;
+          bar.style.width = (total > 0 ? Math.min(100, Math.round(100 * read / total)) : 0) + '%';
+        }} else if (state === 'ready' && !box.classList.contains('is-ready')) {{
+          /* one calm green confirmation; no pulse, no words */
           box.classList.add('is-ready');
-          window.setTimeout(function () {{ box.classList.remove('is-ready'); }}, 1600);
+          clearTimeout(readyTimer);
+          readyTimer = window.setTimeout(clearReady, 3000);
         }}
+        box.classList.toggle('is-error', state === 'error');
       }}
     }}
     var versionToggle = document.querySelector('[data-version-toggle]');
@@ -204,8 +218,8 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
         closeVersionMenu();
         var bar = document.querySelector('[data-version-progress]');
         var chip = document.querySelector('[data-tone="version"]');
-        if (bar) bar.hidden = false;
-        if (chip) {{ chip.classList.remove('is-ready'); chip.classList.add('is-downloading'); }}
+        if (bar) {{ bar.hidden = false; bar.firstElementChild.style.width = '0%'; }}
+        if (chip) chip.classList.remove('is-ready');
         lastPicked = value;
         set('[data-version-value]', value);
         /* no stop, no start: the connector keeps serving while we download */

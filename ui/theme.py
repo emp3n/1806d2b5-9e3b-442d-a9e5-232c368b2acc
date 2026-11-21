@@ -252,13 +252,8 @@ __TOKEN_BLOCKS__
   border: 1px solid transparent; background: var(--chip-tint); color: var(--text);
   transition: border-color 240ms ease, box-shadow 240ms ease;
 }
-/* the whole chip glows: amber while the release is being fetched, green for a
-   moment once it is installed. No words are needed for either state. */
-.rd-version-box.is-downloading {
-  border-color: var(--warn);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 35%, transparent),
-              0 0 14px color-mix(in srgb, var(--warn) 28%, transparent);
-}
+/* The only highlight is the green confirmation after a successful install.
+   It fades out on its own or as soon as the operator moves focus away. */
 .rd-version-box.is-ready {
   border-color: var(--ok);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ok) 35%, transparent),
@@ -289,9 +284,12 @@ __TOKEN_BLOCKS__
 .rd-version-box.is-open .rd-chevron { transform: rotate(180deg); }
 .rd-version-progress {
   display: block; height: 2px; margin: 0 12px 8px; border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--warn), transparent);
-  background-size: 200% 100%;
-  animation: rd-progress-sweep 850ms linear infinite;
+  background: var(--warn);
+}
+.rd-version-progress > i {
+  display: block; height: 100%; width: 0;
+  border-radius: inherit; background: var(--warn);
+  transition: width 180ms linear;
 }
 .rd-version-progress[hidden] { display: none; }
 .rd-version-panel {
@@ -334,14 +332,13 @@ __TOKEN_BLOCKS__
 }
 .rd-stage .rd-version-opt:hover, .rd-stage .rd-version-opt:focus-visible { background: var(--sunken); }
 .rd-stage .rd-version-opt[aria-selected="true"] {
-  background: var(--acc-tint); color: var(--acc);
+  background: var(--sunken); color: var(--text);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 @keyframes rd-menu-in {
   from { opacity: 0; transform: translateY(-3px) scale(.985); }
   to { opacity: 1; transform: none; }
 }
-@keyframes rd-progress-sweep { to { background-position: -200% 0; } }
 /* ---------- measures ---------- */
 .rd-measures { display: grid; grid-template-columns: minmax(0, 1fr) 124px; gap: 8px; }
 .rd-tile { position: relative; border-radius: 14px; padding: 10px 12px; background: var(--cpu-tint); }

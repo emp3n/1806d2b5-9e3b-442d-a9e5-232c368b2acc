@@ -143,7 +143,7 @@ def render(
             <span class="rd-version-head-left"><b data-version-value>{esc(version)}</b></span>
             <svg class="rd-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <span class="rd-version-progress" data-version-progress hidden></span>
+          <span class="rd-version-progress" data-version-progress hidden><i data-version-bar></i></span>
           <div class="rd-version-panel" data-version-panel>
             <div class="rd-version-clip">
               <div class="rd-version-list" role="listbox" data-version-list

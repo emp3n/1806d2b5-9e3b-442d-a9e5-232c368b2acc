@@ -19,7 +19,7 @@ def test_no_ready_text_anywhere_in_the_card():
 
 
 def test_install_feedback_is_only_color_and_a_sweeping_bar():
-    for hook in ("is-downloading", "is-ready", "is-error", "rd-progress-sweep",
+    for hook in ("is-ready", "is-error", "rd-version-progress",
                  "var(--warn)", "var(--ok)", "box-shadow", "padding: 10px 12px"):
         assert hook in THEME, hook
 

@@ -31,7 +31,7 @@ def test_binary_download_and_version_have_hard_limits():
     src = (ROOT / "core" / "bootstrap" / "binary.py").read_text()
     assert "timeout=25" in src
     assert "timeout=15" in src
-    assert "st_size < 1_000_000" in src  # a truncated download is never accepted
+    assert "size < 1_000_000" in src  # a truncated download is never accepted
 
 
 def test_sampler_period_is_shorter_than_the_stale_threshold():

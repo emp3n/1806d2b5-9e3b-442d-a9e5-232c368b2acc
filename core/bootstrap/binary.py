@@ -75,9 +75,28 @@ def download_url(version: str = VERSION) -> str:
     return f"{BASE}/{version}/{asset_name()}"
 
 
-def existing_binary(directory: Path | None = None) -> Path | None:
-    """Prefer a binary we already downloaded; accept a system one as a fallback."""
+def binary_path(directory: Path, version: str) -> Path:
+    """One executable per release: replacing it cannot hit a running process.
+
+    ETXTBSY ("Text file busy") came from writing a new release over the path of
+    the binary cloudflared was executing. Versioned names give each download a
+    fresh inode, so choosing a version never touches the running connector.
+    """
+    return directory / f"cloudflared-{version}"
+
+
+def installed_binary(directory: Path, version: str) -> Path | None:
+    path = binary_path(directory, version)
+    return path if path.is_file() and os.access(path, os.X_OK) else None
+
+
+def existing_binary(directory: Path | None = None, version: str | None = None) -> Path | None:
+    """The release-specific executable, else the legacy single-file binary."""
     directory = directory or runtime_dir()
+    if version:
+        found = installed_binary(directory, version)
+        if found:
+            return found
     candidate = directory / "cloudflared"
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return candidate
@@ -85,46 +104,78 @@ def existing_binary(directory: Path | None = None) -> Path | None:
     return Path(found) if found else None
 
 
+_DL_LOCK = threading.Lock()
+
+
+def _copy_with_progress(reply, out, update) -> int:
+    """Stream a response in chunks, publishing exact byte progress."""
+    total = int(reply.headers.get("Content-Length") or 0) if hasattr(reply, "headers") else 0
+    done = 0
+    update(0, total)
+    while True:
+        chunk = reply.read(64 * 1024)
+        if not chunk:
+            break
+        out.write(chunk)
+        done += len(chunk)
+        update(done, total)
+    return done
+
+
 def download(directory: Path | None = None, version: str = VERSION,
              opener=None, force: bool = False) -> Path:
-    """Fetch one cloudflared release into .temp/ and make it executable.
+    """Fetch one release into its own file, with exact byte progress.
 
-    The download goes to a temporary file first: a half-written 40 MB binary
-    must never be mistaken for a working one on the next app rerun. The small
-    marker next to it says which release the binary is, so picking another
-    version in the card really replaces it instead of silently reusing the old
-    one forever.
+    The lock plus the post-lock existence check mean two script sessions that
+    reboot together fetch the same release once, not twice. The temporary file
+    is only moved into place after the whole body arrived and passed the size
+    check, so a reader never sees a partial binary.
     """
     directory = directory or runtime_dir()
-    target = directory / "cloudflared"
-    marker = directory / "cloudflared.installed"
-    installed = ""
-    try:
-        installed = marker.read_text(encoding="utf-8").strip()
-    except OSError:
-        pass
-    if (not force and installed == version and target.is_file()
-            and os.access(target, os.X_OK)):
+    target = binary_path(directory, version)
+    if not force and installed_binary(directory, version):
         return target
-    url = download_url(version)
-    fetch = opener or urllib.request.urlopen
-    partial = directory / "cloudflared.download"
-    print(f"cloudflared: downloading {url}", flush=True)
-    with fetch(url, timeout=25) as reply, partial.open("wb") as out:
-        shutil.copyfileobj(reply, out)
-    if partial.stat().st_size < 1_000_000:
-        partial.unlink(missing_ok=True)
-        raise RuntimeError(f"suspiciously small cloudflared download: {url}")
-    partial.replace(target)
-    target.chmod(0o755)
-    marker.write_text(version + "\n", encoding="utf-8")
+
+    def publish(read: int, total: int) -> None:
+        with _install_lock:
+            _INSTALL["read"] = read
+            _INSTALL["total"] = total
+
+    with _DL_LOCK:
+        if not force and installed_binary(directory, version):
+            return target
+        url = download_url(version)
+        fetch = opener or urllib.request.urlopen
+        partial = directory / f"cloudflared-{version}.download"
+        print(f"cloudflared: downloading {url}", flush=True)
+        try:
+            with fetch(url, timeout=25) as reply, partial.open("wb") as out:
+                size = _copy_with_progress(reply, out, publish)
+            if size < 1_000_000:
+                raise RuntimeError(f"suspiciously small cloudflared download: {url}")
+            partial.replace(target)
+            target.chmod(0o755)
+        finally:
+            if partial.exists():
+                partial.unlink()
     print(f"cloudflared: binary ready v{version} ({target.stat().st_size} bytes)", flush=True)
     return target
 
 
+def supports_token_tunnels(binary: Path) -> bool:
+    """Old releases use `--cred-file`, not our `--token-file` launch mode."""
+    try:
+        result = subprocess.run([str(binary), "tunnel", "run", "--help"],
+                                capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "--token-file" in (result.stdout + result.stderr)
+
+
 # A version choice downloads in the background. The connector keeps serving
 # until the operator presses Start; only then is the installed binary used.
-_INSTALL: dict[str, str] = {"version": "", "state": "idle", "detail": ""}
+_INSTALL: dict[str, object] = {"version": "", "state": "idle", "detail": "",
+                             "read": 0, "total": 0}
 _install_lock = threading.Lock()
 
 
@@ -147,7 +198,11 @@ def start_install(version: str | None = None) -> dict[str, str]:
 
     def job() -> None:
         try:
-            download(version=target, force=True)
+            path = download(version=target, force=True)
+            if not supports_token_tunnels(path):
+                raise RuntimeError(
+                    f"{target} predates token-based tunnels (--token-file); "
+                    "choose a newer release")
             with _install_lock:
                 _INSTALL.update(state="ready", detail="")
         except Exception as exc:  # noqa: BLE001 - surfaced in the card, never raised here

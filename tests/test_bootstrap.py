@@ -72,7 +72,7 @@ def test_download_lands_in_the_temp_folder(tmp_path, monkeypatch):
         return Reply(b"x" * 1_100_000)
 
     binary = bootstrap.download(opener=fake_open)
-    assert binary == bootstrap.runtime_dir() / "cloudflared"
+    assert binary == bootstrap.binary_path(bootstrap.runtime_dir(), bootstrap.VERSION)
     assert binary.stat().st_size == 1_100_000
     assert binary.stat().st_mode & 0o111
     assert called[0][1] == 25

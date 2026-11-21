@@ -80,7 +80,7 @@ def test_download_switches_binary_when_the_version_changes(tmp_path):
 
     target = bootstrap.download(tmp_path, version="2026.10.4", opener=fetch)
     assert target.stat().st_size == 1_100_000
-    assert (tmp_path / "cloudflared.installed").read_text().strip() == "2026.10.4"
+    assert bootstrap.installed_binary(tmp_path, "2026.10.4") == target
     # the same version is reused without a fetch
     assert bootstrap.download(tmp_path, version="2026.10.4",
                               opener=lambda u, t: None) == target
@@ -89,7 +89,7 @@ def test_download_switches_binary_when_the_version_changes(tmp_path):
         assert "/2026.9.1/" in url
         return Reply(b"y" * 1_100_000)
     bootstrap.download(tmp_path, version="2026.9.1", opener=fetch_new)
-    assert (tmp_path / "cloudflared.installed").read_text().strip() == "2026.9.1"
+    assert bootstrap.installed_binary(tmp_path, "2026.9.1") is not None
 
 
 def test_choosing_a_version_downloads_without_touching_the_connector(monkeypatch, tmp_path):

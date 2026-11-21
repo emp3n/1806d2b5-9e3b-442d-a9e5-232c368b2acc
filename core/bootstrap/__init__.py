@@ -5,6 +5,7 @@ so old imports and monkeypatching still work after the split.
 """
 from __future__ import annotations
 
+import subprocess as _subprocess, threading as _threading, time as _time
 import sys
 from types import ModuleType
 
@@ -71,6 +72,11 @@ _RAW_OWNER = {'BASE': 'tunnel',
  'dataclass': 'tunnel',
  'desired_state': 'config',
  'download': 'binary',
+ 'supports_token_tunnels': 'binary',
+ '_copy_with_progress': 'binary',
+ '_DL_LOCK': 'binary',
+ 'installed_binary': 'binary',
+ 'binary_path': 'binary',
  '_INSTALL': 'binary',
  '_install_lock': 'binary',
  'install_status': 'binary',
@@ -132,6 +138,7 @@ for _name, _owner in _OWNER.items():
 # stdlib modules stay shared: patching their attributes affects every layer
 import json as _json, os as _os, platform as _platform, signal as _signal
 import time as _time, urllib as _urllib
-json, os, platform, signal, time, urllib = _json, _os, _platform, _signal, _time, _urllib
+json, os, platform, signal, subprocess, threading, time, urllib = (
+    _json, _os, _platform, _signal, _subprocess, _threading, _time, _urllib)
 
 __all__ = list(_OWNER) + ["os", "urllib"]
