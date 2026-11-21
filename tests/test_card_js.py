@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-CARD = Path(__file__).resolve().parents[1] / "card.py"
-THEME = Path(__file__).resolve().parents[1] / "theme.py"
+CARD = Path(__file__).resolve().parents[1] / "ui" / "card.py"
+THEME = Path(__file__).resolve().parents[1] / "ui" / "theme.py"
 
 SCRIPT = re.search(r"<script>(.*?)</script>", CARD.read_text(), re.S).group(1)
 
@@ -151,7 +151,7 @@ def test_the_app_installs_a_postmessage_bridge():
     """The card cannot navigate an ancestor of the sandboxed Cloud viewer. The
     bridge presses one of three native Streamlit buttons, so the action is a
     rerun over the open socket — no page reload, no corner toast."""
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "window.__rdVerbBridge" in shell
     assert "window.addEventListener('message'" in shell
     assert "'.st-key-rd_verb_' + verb + ' button'" in shell
@@ -171,14 +171,14 @@ def test_the_result_is_shown_once_in_the_cards_own_bottom_toast():
     # the notice is installed BEFORE the found/empty split, so a Stop (which
     # makes found:false) still shows its result
     assert SCRIPT.index("var act = data.last_action") < SCRIPT.index("if (!data || !data.found)")
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "st.toast(" not in shell
     assert 'outcome["at"] = int(time.time())' in shell
     assert "sampler.last_action = outcome" in shell
 
 
 def test_the_native_verb_buttons_are_present_but_invisible():
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert 'with st.container(key=f"rd_verb_{_verb}")' in shell
     assert "on_click=_run_verb" in shell
     assert ".st-key-rd_verb_stop" in shell
@@ -186,7 +186,7 @@ def test_the_native_verb_buttons_are_present_but_invisible():
 
 
 def test_sample_mode_does_not_poll_a_stale_live_file():
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "state_url = bootstrap.CARD_STATE_PATH if use_live else None" in shell
 
 
@@ -289,7 +289,7 @@ def test_geo_paint_is_guarded_against_injected_codes():
 def test_the_card_polls_a_relative_path():
     """The srcdoc frame resolves it against the app document: "/" on a plain
     host, "/~/+/" on Cloud. A leading slash lost the viewer prefix."""
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "state_url = bootstrap.CARD_STATE_PATH" in shell
     assert "state_url = bootstrap.STATE_PATH" not in shell
 
@@ -301,7 +301,7 @@ def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
     assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
     assert "window.parent.location" not in SCRIPT
     assert "window.top.location" not in SCRIPT
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "sandbox=" not in shell, "a sandbox blocks ancestor navigation"
 
 
@@ -356,7 +356,7 @@ def test_a_card_button_asks_the_app_instead_of_acting_itself():
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
     assert "data-action=" not in CARD.read_text()
     # a native button callback owns the verb; no URL round trip at all
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "def _run_verb(verb: str)" in shell
     assert "sampler.act(verb)" in shell
     assert "on_click=_run_verb" in shell
@@ -370,7 +370,7 @@ def test_stopping_from_the_tunnel_page_warns_first_and_names_the_way_back():
     assert "is-armed" in SCRIPT and "armTimer" in SCRIPT
     # an armed button forgets itself; a confirmation left open is not a stop
     assert "window.setTimeout(disarm, 5000)" in SCRIPT
-    shell = (CARD.parent / "app.py").read_text()
+    shell = (CARD.parent.parent / "app.py").read_text()
     assert "served_through_tunnel" in shell
     assert "back_in=back_in_url" in shell and "bootstrap.cloud_url()" in shell
 

@@ -40,13 +40,12 @@ import time
 
 import streamlit as st
 
-import bootstrap
-import statefeed
-from card import render
-from demo_data import build_state
-from live import idle_state
-from palette import DEFAULT_PALETTE, PALETTES, semantic_tokens
-from theme import THEME_CSS
+from core import bootstrap, statefeed
+from core.demo_data import build_state
+from core.live import idle_state
+from ui.card import render
+from ui.palette import DEFAULT_PALETTE, PALETTES, semantic_tokens
+from ui.theme import THEME_CSS
 
 VIEWS = ("overview", "services", "database", "shell", "logs")
 

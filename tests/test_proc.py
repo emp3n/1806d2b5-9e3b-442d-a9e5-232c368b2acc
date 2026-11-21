@@ -415,7 +415,7 @@ def test_collector_builds_a_state_the_card_can_render(fake_proc, monkeypatch):
 
 def test_card_keys_exist_in_both_feeds(fake_proc, monkeypatch):
     """A guard against drift: what card.py reads must exist in both states."""
-    text = (REDESIGN / "card.py").read_text()
+    text = (REDESIGN / "ui" / "card.py").read_text()
     literal = set(re.findall(r'state\["([a-z_]+)"\]', text))
     templated = set(re.findall(r"state\[f['\"]([a-z_]+)\{key\}", text))
     required = literal | {f"{key}_{suffix}" for key in ("cpu", "mem") for suffix in templated}

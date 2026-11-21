@@ -14,27 +14,28 @@ redesign/
 ├── app.py                  Сборка страницы: query-параметры, состояние,
 │                           <head> (charset, viewport, theme-color), iframe
 │                           srcdoc с карточкой. Единственный автор HTML-обвязки.
-├── bootstrap.py            Туннель и конфигурация: токен, pidfile, запуск/стоп,
-│                           пробы /ready и /metrics, публичный хост, ingress-port.
-├── live.py                 Сэмплер реальных чисел: /proc, /ready, /metrics,
-│                           лог коннектора, парсеры, Collector.state().
-├── statefeed.py            Единственный канал данных: Sampler, INTERVAL,
-│                           атомарная запись state.json фиксированной длины,
-│                           to_payload() -> плоский JSON для карточки.
-├── card.py                 Разметка карточки + весь её JavaScript (оба в одной
-│                           строке-шаблоне). paintGeo/paintConnections, опрос,
-│                           verbs, fit(), sparkline, MB/GB.
-├── theme.py                ВСЁ CSS. Токены вставляются генератором, статические
-│                           правила и media-запросы ниже; hex только в palette.py.
-├── palette.py              Три палитры (linen/slate/moss), 12-шаговые шкалы Radix,
-│                           semantic_tokens(), вычисление контраста.
-├── geo.py                  ipwho.is (страна/регион/город, кеш по IP) и
-│                           /api/v2/app/disambiguate -> cluster/shard-3.
-├── sessions.py             connections(): сокеты реплики + server-side ingress,
-│                           только ESTABLISHED, max() обоих концов.
-├── resources.py            Реальные лимиты контейнера из cgroup: cpu.max,
-│                           cpu.weight, memory.max, cores_text().
-├── demo_data.py            Воспроизводимые демо-данные (?source=sample).
+├── core/                   ПАКЕТ ДАННЫХ. Ни одного UI-импорта; всё, что происходит
+│   ├── __init__.py         ниже, читается сэмплером и публикуется в один JSON.
+│   ├── bootstrap.py        Туннель и конфигурация: токен, pidfile, запуск/стоп,
+│   │                       пробы /ready и /metrics, публичный хост, ingress-port.
+│   ├── live.py             Сэмплер чисел: /proc, /ready, /metrics, лог, парсеры.
+│   ├── statefeed.py        Единственный канал: Sampler, atomic write state.json,
+│   │                       INTERVAL=0.5, to_payload() -> плоский JSON.
+│   ├── geo.py              ipwho.is (кеш по IP) и disambiguate -> cluster/shard-3.
+│   ├── sessions.py         connections(): сокеты реплики + server-side ingress.
+│   ├── resources.py        Лимиты контейнера из cgroup: cpu.weight, memory.max.
+│   └── demo_data.py        Воспроизводимые демо-данные (?source=sample).
+├── ui/                     ПАКЕТ ИНТЕРФЕЙСА. Никакого сэмплирования и сети.
+│   ├── __init__.py
+│   ├── card.py             Разметка + JavaScript: paintGeo, paintConnections,
+│   │                       опрос 500 мс, verbs, fit(), sparkline, MB/GB.
+│   ├── theme.py            ВСЁ CSS: токены + статические правила + breakpoints.
+│   └── palette.py          Три палитры, шкалы Radix, semantic_tokens(), контраст.
+├── bootstrap.py            Совместимость: алиас на core.bootstrap (3 строки).
+├── live.py                 Совместимость: алиас на core.live.
+├── statefeed.py            Совместимость: алиас на core.statefeed.
+├── geo.py, sessions.py, ...и прочие алиасы на core/*.
+├── card.py, theme.py, palette.py   Алиасы на ui/*.
 ├── mcp_exec.py             Удалённый исполнитель MCP (vendored, не трогать без нужды).
 ├── static/
 │   ├── state.json          RUNTIME STATE — генерируется, в git не коммитится.
@@ -43,6 +44,9 @@ redesign/
 ├── tests/                  См. docs/TESTING.md — карта всех тестов.
 ├── docs/
 │   ├── STRUCTURE.md        Этот файл.
+│   ├── TESTING.md          Карта тестов.
+│   ├── TIMEOUTS.md         Аудит всех тайм-аутов.
+│   ├── COVERAGE.md         Измеренное покрытие (87%, сырой вывод в .txt).
 │   └── TESTING.md          Что тестируется и как добавлять тесты.
 ├── .uimix/DESIGN-BRIEF.json  Бриф дизайна (style/palette/modes/density/a11y).
 ├── requirements.txt        streamlit==1.64.0 — единственная зависимость.
