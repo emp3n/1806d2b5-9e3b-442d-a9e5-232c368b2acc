@@ -92,30 +92,25 @@ def test_download_switches_binary_when_the_version_changes(tmp_path):
     assert (tmp_path / "cloudflared.installed").read_text().strip() == "2026.9.1"
 
 
-def test_selecting_a_version_downloads_it_and_starts_the_tunnel(monkeypatch, tmp_path):
-    started = []
-    monkeypatch.setattr(bootstrap, "runtime_dir", lambda: tmp_path)
-    monkeypatch.setattr(bootstrap, "tunnel_status",
-                        lambda port, directory=None: {"pid": 42, "extra": []})
-    monkeypatch.setattr(bootstrap, "stop_tunnel",
-                        lambda *a, **k: {"ok": True, "stopped": [42], "survivors": []})
-    monkeypatch.setattr(bootstrap, "ensure_tunnel",
-                        lambda *a, **k: started.append(k) or
-                        bootstrap.Tunnel(True, pid=77, mode="named"))
-    result = bootstrap.use_version("2026.10.4", 8501)
-    assert result["ok"] is True and result["version"] == "2026.10.4"
-    assert started and started[0]["force"] is True
-    assert bootstrap.desired_version() == "2026.10.4"
-
-
-def test_a_version_change_that_cannot_stop_the_old_connector_is_refused(monkeypatch, tmp_path):
+def test_choosing_a_version_downloads_without_touching_the_connector(monkeypatch, tmp_path):
+    seen = []
     monkeypatch.setattr(bootstrap, "runtime_dir", lambda: tmp_path)
     monkeypatch.setattr(bootstrap, "tunnel_status", lambda *a, **k: {"pid": 42, "extra": []})
-    monkeypatch.setattr(bootstrap, "stop_tunnel",
-                        lambda *a, **k: {"ok": False, "stopped": [], "survivors": [42]})
-    monkeypatch.setattr(bootstrap, "ensure_tunnel", lambda *a, **k: None)
+    monkeypatch.setattr(bootstrap, "stop_tunnel", lambda *a, **k: seen.append("stop"))
+    monkeypatch.setattr(bootstrap, "ensure_tunnel", lambda *a, **k: seen.append("start"))
+    monkeypatch.setattr(bootstrap, "start_install", lambda v: {
+        "version": v, "state": "downloading", "detail": ""})
     result = bootstrap.use_version("2026.10.4", 8501)
-    assert result["ok"] is False and "42" in result["error"]
+    assert result["ok"] is True and result["install"] == "downloading"
+    assert seen == [] and bootstrap.desired_version() == "2026.10.4"
+
+
+def test_a_failed_download_is_reported_without_stopping_anything(monkeypatch, tmp_path):
+    monkeypatch.setattr(bootstrap, "runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(bootstrap, "start_install", lambda v: {
+        "version": v, "state": "error", "detail": "RuntimeError: offline"})
+    result = bootstrap.use_version("2026.10.4", 8501)
+    assert result["ok"] is False and "offline" in result["detail"]
 
 
 def test_ensure_tunnel_downloads_the_chosen_release(monkeypatch, tmp_path):
@@ -132,12 +127,3 @@ def test_ensure_tunnel_downloads_the_chosen_release(monkeypatch, tmp_path):
                         lambda *a, **k: bootstrap.Tunnel(True, pid=5))
     bootstrap.ensure_tunnel(8501, force=True)
     assert seen == ["2026.9.1"]
-
-
-def test_a_version_change_reports_a_failed_start(monkeypatch, tmp_path):
-    monkeypatch.setattr(bootstrap, "runtime_dir", lambda: tmp_path)
-    monkeypatch.setattr(bootstrap, "tunnel_status", lambda *a, **k: {"pid": None, "extra": []})
-    def boom(*a, **k): raise RuntimeError("no route to GitHub")
-    monkeypatch.setattr(bootstrap, "ensure_tunnel", boom)
-    result = bootstrap.use_version("2026.10.4", 8501)
-    assert result["ok"] is False and "no route to GitHub" in result["error"]

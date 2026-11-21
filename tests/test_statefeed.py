@@ -91,6 +91,8 @@ def test_a_down_connector_says_down_not_up():
 
 def test_no_connector_is_a_state_not_a_guess(monkeypatch):
     import bootstrap
+    monkeypatch.setattr(bootstrap, "install_status", lambda: {
+        "version": "", "state": "idle", "detail": ""})
     monkeypatch.setattr(bootstrap, "catalogue", lambda: [
         {"tag": "2026.11.1", "age": "3 days ago", "pre": False},
         {"tag": "2026.10.4", "age": "1 month ago", "pre": False}])
@@ -101,6 +103,7 @@ def test_no_connector_is_a_state_not_a_guess(monkeypatch):
         "found": False, "origin": "8.8.8.8", "chosen_version": "latest",
         "versions": [{"tag": "2026.11.1", "age": "3 days ago", "pre": False},
                      {"tag": "2026.10.4", "age": "1 month ago", "pre": False}],
+        "install": bootstrap.install_status(),
         "origin_geo": {"cc": "US", "country": "United States",
                        "region": "California", "city": "Mountain View"},
         "tunnel": {"ok": False, "mode": "none", "pid": None, "ready": 0,

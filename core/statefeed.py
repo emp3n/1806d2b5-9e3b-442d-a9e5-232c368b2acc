@@ -114,6 +114,7 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         payload: dict[str, Any] = {
             "found": False, "origin": origin, "origin_geo": origin_geo,
             "chosen_version": bootstrap.desired_version(), "versions": bootstrap.catalogue(),
+            "install": bootstrap.install_status(),
         }
         if last_action:
             payload["last_action"] = last_action
@@ -159,6 +160,7 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "register_fail": state.get("register_fail", 0),
         "chosen_version": bootstrap.desired_version(),
         "versions": bootstrap.catalogue(),
+        "install": bootstrap.install_status(),
         "tunnel": {
             "ok": bool(tunnel.get("ok")),
             "mode": tunnel.get("mode") or "none",

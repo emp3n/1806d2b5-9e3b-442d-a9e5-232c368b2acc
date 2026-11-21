@@ -32,6 +32,7 @@ CARD_INTEGRATION=1 python3 -m pytest tests -q  # + реальный cloudflared
 | `test_versions.py` | 12 | файл выбора версии, GitHub tags API, скачивание и запуск нужного релиза |
 | `test_version_picker.py` | 6 | контракт выпадающего списка, анимации, postMessage, мост приложения |
 | `test_shard_and_edges.py` | 4 | шард при остановке, кратность коло, бейдж ×N |
+| `test_version_flow.py` | 9 | выбор версии только скачивает, фоновая закачка, секреты/env, стиль списка |
 | `test_geo.py` | 5 | кеш ISO-кодов, фильтр приватных IP, отказ сети, cluster из disambiguate |
 | `test_sessions.py` | 4 | сокеты cloudflared и server-side ingress, только ESTABLISHED, комбинированный счёт |
 

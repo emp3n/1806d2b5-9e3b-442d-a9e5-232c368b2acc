@@ -599,32 +599,16 @@ def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
         return tunnel
 
 
-def use_version(version: str, port: int, wait_s: float = 30.0) -> dict[str, Any]:
-    """Remember a release, download it and bring a connector up with it.
+def use_version(version: str, port: int | None = None,
+                wait_s: float = 0.0) -> dict[str, Any]:
+    """Remember a release and download it in the background.
 
-    The version picker lives in the card's stopped state, where the user is
-    choosing what to run — not just what to display. A choice is a real verb:
-    validate + persist first, stop whatever is on the port, then let
-    ``ensure_tunnel`` fetch the chosen release and register it. If the old
-    process refuses to die we leave the choice recorded but say why the start
-    did not happen, instead of starting a second connector on the same port.
+    Choosing a version is not a start command: the running connector is left
+    alone, so the card never blinks or disconnects while a 40 MB download runs.
+    The operator presses Start to switch to the version that was installed.
     """
     chosen = set_desired_version(version)
-    forget_tunnel()
-    status = tunnel_status(port)
-    pids = [pid for pid in ([status.get("pid")] + list(status.get("extra") or []))
-            if pid]
-    if pids:
-        stopped = stop_tunnel(pids)
-        if not stopped.get("ok"):
-            return {"ok": False, "action": "version", "version": chosen,
-                    "error": f"old connector survived: {stopped.get('survivors')}"}
-    set_desired("on")
-    try:
-        tunnel = ensure_tunnel(port, force=True, wait_s=wait_s)
-    except Exception as exc:  # noqa: BLE001 - the card must name the failure
-        return {"ok": False, "action": "version", "version": chosen,
-                "error": f"{type(exc).__name__}: {exc}"}
-    return {"ok": bool(tunnel.ok), "action": "version", "version": chosen,
-            "actual": resolved_version(), "pid": getattr(tunnel, "pid", None),
-            "detail": "" if tunnel.ok else (tunnel.detail or tunnel.message)}
+    install = start_install(resolved_version())
+    return {"ok": install["state"] != "error", "action": "version",
+            "version": chosen, "actual": install["version"],
+            "install": install["state"], "detail": install["detail"]}

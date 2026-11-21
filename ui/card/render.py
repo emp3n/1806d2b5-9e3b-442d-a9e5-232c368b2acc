@@ -140,11 +140,11 @@ def render(
         <div class="rd-version-box" data-fact-row="3" data-tone="version"{"" if show_version else hidden}>
           <button type="button" class="rd-version-head" data-version-toggle
                   aria-expanded="false" aria-label="Choose cloudflared version">
-            <span class="rd-version-head-left">
-              <em>version</em><b data-version-value>{esc(version)}</b>
-            </span>
+            <span class="rd-version-head-left"><b data-version-value>{esc(version)}</b></span>
             <svg class="rd-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
           </button>
+          <span class="rd-version-progress" data-version-progress hidden></span>
+          <span class="rd-version-note" data-version-note hidden></span>
           <div class="rd-version-panel" data-version-panel>
             <div class="rd-version-clip">
               <div class="rd-version-list" role="listbox" data-version-list

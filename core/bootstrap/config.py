@@ -35,6 +35,9 @@ VERSION = "2026.11.1"
 # that survives a Streamlit rerun, a page reload and a script reboot, and is
 # wiped with the container. "latest" means "the newest published tag".
 VERSION_FILE = "cloudflared.version"
+# A secret (or the environment) seeds the choice after a fresh deploy, when
+# the runtime file does not exist yet. A click in the card still wins later.
+VERSION_KEYS = ("CLOUDFLARE_VERSION", "CARD_VERSION")
 BASE = "https://github.com/cloudflare/cloudflared/releases/download"
 
 TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
@@ -147,15 +150,24 @@ def version_path(directory: Path | None = None) -> Path:
     return (directory or runtime_dir()) / VERSION_FILE
 
 
+def version_override() -> str:
+    """An admin-supplied starting version from secrets or the environment."""
+    for key in VERSION_KEYS:
+        value = str(_setting(key) or "").strip()
+        if value == "latest" or TAG_RE.fullmatch(value):
+            return value
+    return ""
+
+
 def desired_version(directory: Path | None = None) -> str:
-    """The version the operator picked, or ``latest`` before any pick."""
+    """The picked version; on a fresh deploy, the secret/env default."""
     try:
         value = version_path(directory).read_text(encoding="utf-8").strip()
+        if value == "latest" or TAG_RE.fullmatch(value):
+            return value
     except OSError:
-        return "latest"
-    if value == "latest" or TAG_RE.fullmatch(value):
-        return value
-    return "latest"  # a corrupt file must never turn into a bad download URL
+        pass
+    return version_override() or "latest"
 
 
 def set_desired_version(value: str, directory: Path | None = None) -> str:

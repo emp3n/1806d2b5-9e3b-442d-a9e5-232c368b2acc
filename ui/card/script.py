@@ -172,7 +172,22 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       }}
       if (val.textContent !== chosen) val.textContent = chosen;
       var box = document.querySelector('[data-tone="version"]');
-      if (box && chosen === lastPicked) {{ box.classList.remove('is-busy'); lastPicked = ''; }}
+      var progress = document.querySelector('[data-version-progress]');
+      var note = document.querySelector('[data-version-note]');
+      var install = data && data.install;
+      if (box && progress && note && install) {{
+        var busy = install.state === 'downloading';
+        progress.hidden = !busy;
+        var label = '';
+        if (busy) label = 'Downloading ' + (install.version || chosen) + '…';
+        else if (install.state === 'ready') label = 'Ready · ' + (install.version || chosen) + ' — press Start';
+        else if (install.state === 'error') label = install.detail || 'Download failed';
+        note.textContent = label;
+        note.hidden = !label;
+        if (install.state === 'error') note.setAttribute('data-tone', 'error');
+        else note.removeAttribute('data-tone');
+        box.classList.toggle('is-error', install.state === 'error');
+      }}
     }}
     var versionToggle = document.querySelector('[data-version-toggle]');
     var versionList = document.querySelector('[data-version-list]');
@@ -190,11 +205,13 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
         var value = opt.getAttribute('data-release');
         if (!/^(latest|[0-9]{{4}}\\.[0-9]{{1,2}}\\.[0-9]{{1,2}}(?:-[A-Za-z0-9.-]+)?)$/.test(value)) return;
         closeVersionMenu();
-        var box = document.querySelector('[data-tone="version"]');
-        if (box) box.classList.add('is-busy');
+        var bar = document.querySelector('[data-version-progress]');
+        var msg = document.querySelector('[data-version-note]');
+        if (bar) bar.hidden = false;
+        if (msg) {{ msg.hidden = false; msg.textContent = 'Downloading ' + value + '…'; }}
         lastPicked = value;
         set('[data-version-value]', value);
-        set('[data-status-text]', 'Downloading ' + value + '…');
+        /* no stop, no start: the connector keeps serving while we download */
         fire('version', value);
       }});
     }}

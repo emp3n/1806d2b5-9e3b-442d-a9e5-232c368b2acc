@@ -183,6 +183,7 @@ $ tr '\0' '\n' < /proc/519582/cmdline | grep -c '^eyJ'
 | На карточке | Поле состояния | Откуда | Проверка | Сейчас |
 |---|---|---|---|---|
 | `pid` в уведомлении действия | `pid` | скан `/proc/*/cmdline` (или `CLOUDFLARED_PID`, или `--pidfile`) | `pgrep -x cloudflared` | `531174` |
+| Стартовая версия | секрет `CLOUDFLARE_VERSION` / env | дефолт на свежем деплое |
 | Выбранная версия | `core/.temp/cloudflared.version` | дефолт `latest`, список из GitHub tags API | `curl https://api.github.com/repos/cloudflare/cloudflared/tags` | `2026.11.1` |
 | Origin при остановке | `geo.own_endpoint()` | ipwho.is → ipapi.co → ipinfo.io, кеш на процесс | `curl https://ipwho.is/` | `34.19.100.134` |
 | путь в полосе | `path` | `readlink /proc/<pid>/exe` | `readlink /proc/531174/exe` | `/tmp/user/1000/opencode/cloudflared` |

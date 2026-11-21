@@ -244,38 +244,46 @@ __TOKEN_BLOCKS__
 .rd-fact[data-tone="mem"] { background: var(--chip-tint); }
 
 /* ---------- version picker ----------
-   In flow and full card width: opening it grows the card instead of floating a
-   narrow menu with its own scrollbars. Only the list scrolls, and only
-   vertically — every row is box-sizing:border-box so no horizontal bar can
-   appear beside it. The 0fr -> 1fr grid transition animates the expansion. */
+   The head is the same chip as Origin: same tint, same 8px radius, same
+   13px type. Opening the list grows the card in flow; only the list scrolls,
+   with a 4px custom bar. No popover, no horizontal bar, no protruding pill. */
 .rd-version-box {
-  min-width: 0; width: 100%; border-radius: 12px;
-  background: var(--chip-tint); overflow: hidden;
+  min-width: 0; width: 100%; border-radius: 8px;
+  background: var(--chip-tint); color: var(--text);
 }
 .rd-version-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; width: 100%; min-width: 0; padding: 8px 10px;
-  color: var(--text); transition: background-color var(--fast);
+  gap: 8px; width: 100%; min-width: 0; padding: 4px 10px; min-height: 28px;
+  color: var(--text); font-size: 13px;
+  transition: color var(--fast);
 }
-.rd-version-head:hover, .rd-version-head:focus-visible { background: var(--sunken); }
-.rd-version-head-left {
-  display: inline-flex; align-items: baseline; gap: 10px; min-width: 0;
-}
-.rd-version-head-left em { font-style: normal; color: var(--muted); }
+.rd-version-head:hover, .rd-version-head:focus-visible { color: var(--acc); }
+.rd-version-head-left { display: inline-flex; align-items: center; min-width: 0; }
 .rd-version-head-left b {
   font-family: "RD Russo"; font-weight: 400; font-size: 13px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rd-chevron {
   width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor;
-  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
-  transition: transform 240ms cubic-bezier(.2,.8,.2,1);
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1);
 }
 .rd-version-box.is-open .rd-chevron { transform: rotate(180deg); }
-.rd-version-box.is-busy .rd-version-head { animation: rd-pulse 1s ease-in-out infinite; }
+.rd-version-progress {
+  display: block; height: 2px; margin: 0 10px 5px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--acc), transparent);
+  background-size: 200% 100%;
+  animation: rd-slide 1.15s linear infinite;
+}
+.rd-version-progress[hidden], .rd-version-note[hidden] { display: none; }
+.rd-version-note {
+  display: block; padding: 0 10px 6px; font-size: 11px; color: var(--muted);
+}
+.rd-version-note[data-tone="error"] { color: var(--crit); }
+.rd-version-box.is-error .rd-version-head { animation: rd-pulse 1.4s ease-in-out infinite; }
 .rd-version-panel {
   display: grid; grid-template-rows: 0fr;
-  transition: grid-template-rows 280ms cubic-bezier(.2,.8,.2,1);
+  transition: grid-template-rows 260ms cubic-bezier(.2,.8,.2,1);
 }
 .rd-version-box.is-open .rd-version-panel { grid-template-rows: 1fr; }
 .rd-version-clip { min-height: 0; overflow: hidden; }
@@ -283,42 +291,47 @@ __TOKEN_BLOCKS__
   box-sizing: border-box; min-width: 0; max-height: 234px;
   overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
   scrollbar-width: thin; scrollbar-color: var(--muted) transparent;
-  padding: 2px 5px 6px;
-  animation: rd-menu-in 190ms ease-out both;
+  padding: 2px 6px 7px;
+  animation: rd-menu-in 200ms cubic-bezier(.2,.8,.2,1) both;
 }
-.rd-version-list::-webkit-scrollbar { width: 6px; }
+.rd-version-list::-webkit-scrollbar { width: 4px; }
 .rd-version-list::-webkit-scrollbar-track { background: transparent; }
 .rd-version-list::-webkit-scrollbar-thumb {
-  background: var(--muted); border-radius: 6px; border: 1px solid var(--card);
+  background: var(--muted); border-radius: 4px; opacity: .7;
 }
 .rd-version-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
 .rd-version-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   box-sizing: border-box; width: 100%; min-width: 0; padding: 7px 9px;
   border-radius: 8px; font-size: 13px; color: var(--text); text-align: left;
-  font-variant-numeric: tabular-nums;
-  transition: background-color 120ms, color 120ms, padding-left 120ms;
+  transition: background-color 180ms ease, box-shadow 180ms ease, color 180ms ease;
 }
 .rd-version-name {
   display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  font-family: "RD Russo"; font-weight: 400; font-size: 13px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.rd-version-age { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.rd-version-age {
+  flex: none; font-size: 11px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .rd-pre {
-  padding: 1px 5px; border-radius: 5px; font-size: 10px; text-transform: uppercase;
-  background: var(--warn-tint); color: var(--warn);
+  padding: 1px 5px; border-radius: 5px; font-size: 10px; letter-spacing: .04em;
+  text-transform: uppercase; background: var(--warn-tint); color: var(--warn);
 }
-.rd-version-opt:hover, .rd-version-opt:focus-visible {
-  background: var(--sunken); padding-left: 12px;
+.rd-version-opt:hover, .rd-version-opt:focus-visible { background: var(--sunken); }
+.rd-version-opt[aria-selected="true"] {
+  background: var(--acc-tint); color: var(--acc);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
-.rd-version-opt[aria-selected="true"] { background: var(--acc-tint); color: var(--acc); }
 @keyframes rd-menu-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-3px) scale(.985); }
   to { opacity: 1; transform: none; }
 }
+@keyframes rd-slide { to { background-position: -200% 0; } }
 @keyframes rd-pulse {
   0%, 100% { box-shadow: 0 0 0 0 transparent; }
-  50% { box-shadow: 0 0 0 3px var(--acc-tint); }
+  50% { box-shadow: 0 0 0 2px var(--warn-tint); }
 }
 
 /* ---------- measures ---------- */

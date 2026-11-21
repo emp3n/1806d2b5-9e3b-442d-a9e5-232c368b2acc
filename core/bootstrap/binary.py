@@ -122,6 +122,43 @@ def download(directory: Path | None = None, version: str = VERSION,
     return target
 
 
+# A version choice downloads in the background. The connector keeps serving
+# until the operator presses Start; only then is the installed binary used.
+_INSTALL: dict[str, str] = {"version": "", "state": "idle", "detail": ""}
+_install_lock = threading.Lock()
+
+
+def install_status() -> dict[str, str]:
+    with _install_lock:
+        return dict(_INSTALL)
+
+
+def start_install(version: str | None = None) -> dict[str, str]:
+    """Fetch a release on a daemon thread; return the state immediately.
+
+    A second click on the same version while a download is running is a no-op,
+    so the card cannot stack 40 MB downloads behind each other.
+    """
+    target = version or resolved_version()
+    with _install_lock:
+        if _INSTALL["state"] == "downloading" and _INSTALL["version"] == target:
+            return dict(_INSTALL)
+        _INSTALL.update(version=target, state="downloading", detail="")
+
+    def job() -> None:
+        try:
+            download(version=target, force=True)
+            with _install_lock:
+                _INSTALL.update(state="ready", detail="")
+        except Exception as exc:  # noqa: BLE001 - surfaced in the card, never raised here
+            with _install_lock:
+                _INSTALL.update(state="error",
+                                detail=f"{type(exc).__name__}: {exc}")
+
+    threading.Thread(target=job, name="cf-version-download", daemon=True).start()
+    return install_status()
+
+
 def version_of(binary: Path) -> str:
     result = subprocess.run([str(binary), "--version"], capture_output=True,
                            text=True, timeout=15)
