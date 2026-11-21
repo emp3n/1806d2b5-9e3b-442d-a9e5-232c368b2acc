@@ -183,7 +183,7 @@ $ tr '\0' '\n' < /proc/519582/cmdline | grep -c '^eyJ'
 | На карточке | Поле состояния | Откуда | Проверка | Сейчас |
 |---|---|---|---|---|
 | `pid` в уведомлении действия | `pid` | скан `/proc/*/cmdline` (или `CLOUDFLARED_PID`, или `--pidfile`) | `pgrep -x cloudflared` | `531174` |
-| Выбранная версия | `.temp/cloudflared.version` | дефолт `latest`, список из GitHub tags API | `curl https://api.github.com/repos/cloudflare/cloudflared/tags` | `2026.11.1` |
+| Выбранная версия | `core/.temp/cloudflared.version` | дефолт `latest`, список из GitHub tags API | `curl https://api.github.com/repos/cloudflare/cloudflared/tags` | `2026.11.1` |
 | Origin при остановке | `geo.own_endpoint()` | ipwho.is → ipapi.co → ipinfo.io, кеш на процесс | `curl https://ipwho.is/` | `34.19.100.134` |
 | путь в полосе | `path` | `readlink /proc/<pid>/exe` | `readlink /proc/531174/exe` | `/tmp/user/1000/opencode/cloudflared` |
 | `CPU` (число + линия) | `cpu`, `cpu_series` | сумма `run_time` (нс) по всем `/proc/<pid>/task/*/schedstat`, как скорость между двумя сэмплами; фолбэк — `/proc/<pid>/stat` поля 14+15 (`utime`+`stime`, USER_HZ=100) | `awk '{s+=$1} END{print s}' /proc/531174/task/*/schedstat` | на экране **0.30–0.43 %** (тиками это читалось бы как `0` или `1`) |
