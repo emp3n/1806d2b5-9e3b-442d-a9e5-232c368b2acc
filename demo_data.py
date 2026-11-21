@@ -181,6 +181,7 @@ def build_state(tick: int = 0, *, incident: bool = False) -> dict[str, Any]:
         "host": host(),
         "connected": not incident,
         "live": live,
+        "viewers": 0 if incident else 3,
         "edges": [
             {
                 "code": code,

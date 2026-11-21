@@ -93,9 +93,14 @@ def read_state(path: Path | None = None) -> dict[str, Any]:
         return {}
 
 
+# cloudflared opens four HA connections to the edge by default; the header
+# line and the connections chip must agree on that target.
+CONN_TARGET = 4
+
+
 def state_text(state: dict[str, Any]) -> str:
     """The header line: how many edges are live. The reason is its own field."""
-    return f'{state.get("live", 0)} of 4 connections live'
+    return f'{state.get("live", 0)} of {CONN_TARGET} connections live'
 
 
 def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
@@ -120,6 +125,9 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "found": True,
         "pid": state["pid"],
         "live": state["live"],
+        # Viewers holding an active connection through our tunnel replica,
+        # counted from cloudflared's own sockets to the local ingress port.
+        "viewers": int(state.get("viewers", 0) or 0),
         "note": state.get("note", ""),
         "status_text": state_text(state),
         "status_state": "up" if state["connected"] else "down",

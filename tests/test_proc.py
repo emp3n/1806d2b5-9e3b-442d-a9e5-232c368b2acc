@@ -174,7 +174,10 @@ def test_a_sub_percent_reading_reaches_the_card(fake_proc, monkeypatch):
 
     collector._last_cpu_ns = (_time.monotonic() - 1.0, 1_000_000)
     collector.sample()
+    collector._metrics = {"ha_connections": 4, "register_fail": 0,
+                          "requests": 0, "version": "2026.11.1"}
     state = collector.state()
+    assert state["ha_connections"] == 4
     assert state["cpu_text"] == "0.30%"
     cores = live.available_cores()
     assert state["cpu_share"] == f"{0.30 / cores:.2f}% of {live.cores_text(cores)} cores"

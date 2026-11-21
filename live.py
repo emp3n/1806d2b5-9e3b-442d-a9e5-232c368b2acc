@@ -47,7 +47,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+import bootstrap
 import geo
+import sessions
 from resources import available_cores, cores_text, memory_limit_bytes
 
 PROC = Path("/proc")
@@ -631,6 +633,7 @@ def idle_state() -> dict[str, Any]:
         "host": host(),
         "connected": False,
         "live": 0,
+        "viewers": 0,
         "note": "",
         "edges": [],
         "edge_names": "—",
@@ -794,8 +797,6 @@ class Collector:
             # version when the running binary can simply be asked.
             cached = _VERSION_CACHE.get(exe)
             if cached is None:
-                import bootstrap
-
                 try:
                     cached = bootstrap.version_of(Path(exe))
                 except Exception:  # noqa: BLE001 - a probe must not break the page
@@ -898,6 +899,13 @@ class Collector:
             "source": "live",
             "source_label": f"live · pid {self.pid}",
             "register_fail": int(self._metrics.get("register_fail", 0)),
+            # cloudflared's own gauge of active HA connections, independent of
+            # the /ready endpoint; both are published so the card can show the
+            # connections actually established right now.
+            "ha_connections": int(self._metrics.get("ha_connections", 0)),
+            # Viewers through THIS replica: sockets owned by cloudflared to the
+            # local ingress, not Cloudflare-side or proxy traffic.
+            "viewers": sessions.active_sessions(self.pid, bootstrap.ingress_port()),
             "requests": int(self._metrics.get("requests", 0)),
             "gaps": self.gaps(),
         }

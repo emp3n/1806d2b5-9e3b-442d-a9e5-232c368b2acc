@@ -290,6 +290,19 @@ Streamlit на 8501, и `/api/state` на нём — 404.
 где вместо точки — тот же SVG. Всё адаптировано под тему: рамка и вспомогательный
 текст идут из `--border` / `--muted`, при узком окне чипы переносятся.
 
+Чип `users N` в **строке Edges** считает активных зрителей именно через нашу
+реплику туннеля, а не через Cloudflare или proxies Streamlit Cloud. Источник —
+`streamlead.idealis.cc` → локальный ingress: `sessions.active_sessions()` берёт
+PID cloudflared, собирает его socket-иноды из `/proc/<pid>/fd` и считает в
+`/proc/net/tcp{,6}` только сокеты в состоянии `01` (ESTABLISHED) с удалённым
+портом ingress (8501). Так в счёт попадают только подключения, которые реально
+прошли через туннель с нашим токеном; лишние LISTEN/TIME_WAIT и чужие PID'ы
+отфильтровываются. Значение публикуется в `state.json` как `viewers`, при
+остановленном коннекторе честно показывает `0`.
+
+Метрика `cloudflared_tunnel_concurrent_requests_per_tunnel` в сборке 2026.11.1
+зарегистрирована, но всегда равна нулю, поэтому для этого числа не используется.
+
 ## Три темы: палитры и токены
 
 Цвет живёт в трёх слоях, и каждый слой можно менять независимо:
@@ -518,7 +531,7 @@ pidfile → `/proc` → `/ready`: чужой `cloudflared`, systemd или ко�
 ## Тесты
 
 ```sh
-python3 -m pytest tests -q                            # 181: юниты
+python3 -m pytest tests -q                            # 186: юниты
 CARD_INTEGRATION=1 python3 -m pytest tests -q         # + настоящий cloudflared
 ```
 
@@ -529,6 +542,7 @@ CARD_INTEGRATION=1 python3 -m pytest tests -q         # + настоящий clo
 | `tests/test_proc.py` (59) | разбор `/proc`, метрики, `/ready` (тело 503), лог (JSON и текст, склеивание слотов `connIndex`), адрес лога, токен не попадает в состояние/пейлоад/HTML, каждый край назван один раз |
 | `tests/test_card_js.py` (17) | отказ называется, а не замораживается; цепочка с дедлайном и бэкоффом; возобновление по `visibilitychange`/`pageshow`/`online`; притушенные числа; `stalled` по наблюдению, а не по чужим часам; подтверждение остановки в оболочке; у карточки нет своего HTTP-эндпоинта |
 | `tests/test_palette.py` (7) | три палитры, контраст всех текстовых пар в светлой и тёмной моде, статические токены, переключатель |
+| `tests/test_sessions.py` (3) | счётчик активных сессий по сокетам cloudflared: только ESTABLISHED, только наш PID, только ingress-порт |
 | `tests/test_geo.py` (4) | кеш geo-запросов, фильтр приватных IP, отказ при офлайне, плейсмент из resolv.conf |
 | `tests/test_resources.py` (5) | cores из cgroup v2/v1 и cpuset, память из `memory.max`, а не из хоста |
 | `tests/test_phone.py` (13) | телефонные размеры, полоса внизу, достижимость подвала |
