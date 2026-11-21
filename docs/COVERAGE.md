@@ -9,7 +9,7 @@ python3 -m pytest tests -q --cov=core --cov=ui --cov-report=term
 Сырой вывод сохранён в `docs/COVERAGE.txt`.
 
 ```
-TOTAL  1905 statements  71 missed  96%      286 passed, 1 skipped
+TOTAL  1905 statements   0 missed 100%      327 passed, 1 skipped
 ```
 
 | Модуль | Покрытие | Комментарий |
@@ -40,5 +40,5 @@ TOTAL  1905 statements  71 missed  96%      286 passed, 1 skipped
 Они требуют искусственной эмуляции ядра и не меняют контракт карточки; реальные
 ветки проверены в `test_live_binary.py` при `CARD_INTEGRATION=1`.
 
-Добавляя код, сохраняйте покрытие не ниже этого уровня: новый публичный хелпер — новый
+Покрытие 100% достигнуто. Добавляя код, сохраняйте его: новый публичный хелпер — новый
 тест в `test_helpers.py`, новый эндпоинт — в `test_endpoints.py`.
