@@ -163,13 +163,24 @@ def download(directory: Path | None = None, version: str = VERSION,
 
 
 def supports_token_tunnels(binary: Path) -> bool:
-    """Old releases use `--cred-file`, not our `--token-file` launch mode."""
+    """Old releases use `--cred-file`, not our `--token-file` launch mode.
+
+    The flag is found by scanning the binary, NOT by executing it: on Community
+    Cloud a freshly spawned cloudflared aborts with "failed to reserve page
+    summary memory", so a --help probe would condemn every valid release.
+    """
     try:
-        result = subprocess.run([str(binary), "tunnel", "run", "--help"],
-                                capture_output=True, text=True, timeout=15)
-    except (OSError, subprocess.SubprocessError):
+        needle, tail = b"--token-file", b""
+        with open(binary, "rb") as handle:
+            while True:
+                chunk = handle.read(1 << 20)
+                if not chunk:
+                    return False
+                if needle in tail + chunk:
+                    return True
+                tail = chunk[-(len(needle) - 1):]
+    except OSError:
         return False
-    return "--token-file" in (result.stdout + result.stderr)
 
 
 # A version choice downloads in the background. The connector keeps serving

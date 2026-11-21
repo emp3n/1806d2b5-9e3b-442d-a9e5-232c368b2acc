@@ -11,7 +11,7 @@ Name                         Stmts   Miss  Cover
 ------------------------------------------------
 core/__init__.py                 2      0   100%
 core/bootstrap/__init__.py      26      0   100%
-core/bootstrap/binary.py       143      0   100%
+core/bootstrap/binary.py       150      0   100%
 core/bootstrap/config.py       165      0   100%
 core/bootstrap/probes.py       143      0   100%
 core/bootstrap/releases.py      64      0   100%
@@ -34,5 +34,5 @@ ui/card/script.py                6      0   100%
 ui/palette.py                   35      0   100%
 ui/theme.py                     19      0   100%
 ------------------------------------------------
-TOTAL                         2150      0   100%
-395 passed, 1 skipped in 20.76s
+TOTAL                         2157      0   100%
+395 passed, 1 skipped in 20.84s

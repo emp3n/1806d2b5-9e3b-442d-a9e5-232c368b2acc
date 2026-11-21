@@ -74,17 +74,17 @@ def test_progress_tracks_real_bytes(tmp_path):
     assert s["total"] > 0
 
 
-def test_old_release_is_detected_as_incompatible(tmp_path, monkeypatch):
-    import subprocess
-    class Proc:
-        returncode = 0
-        stdout = "NAME:\n   cloudflared tunnel run - Proxy a local web server\n"
-        stderr = ""
-    import subprocess as _sp
-    monkeypatch.setattr(_sp, "run", lambda *a, **k: Proc())
-    assert bootstrap.supports_token_tunnels(tmp_path / "cf") is False
-    Proc.stdout = "OPTIONS:\n   --token-file value\n"
-    assert bootstrap.supports_token_tunnels(tmp_path / "cf") is True
+def test_old_release_is_detected_as_incompatible(tmp_path):
+    old = tmp_path / "cf"
+    old.write_bytes(b"cloudflared tunnel run --cred-file ...")
+    assert bootstrap.supports_token_tunnels(old) is False
+    new = tmp_path / "cf-new"
+    new.write_bytes(b"prefix --token-file suffix")
+    assert bootstrap.supports_token_tunnels(new) is True
+    # a flag split across two read chunks is still found
+    big = tmp_path / "cf-big"
+    big.write_bytes(b"x" * (1 << 20) + b"--token" + b"-file" + b"y" * 100)
+    assert bootstrap.supports_token_tunnels(big) is True
 
 
 def test_install_marks_an_incompatible_release_as_error(monkeypatch, tmp_path):
@@ -127,8 +127,5 @@ def test_existing_binary_prefers_the_exact_release_and_falls_back(tmp_path):
     assert bootstrap.existing_binary(tmp_path, "2020.7.4") == legacy
 
 
-def test_capability_probe_survives_a_missing_binary(monkeypatch, tmp_path):
-    import subprocess as sp
-    def boom(*a, **k): raise OSError("not executable")
-    monkeypatch.setattr(sp, "run", boom)
+def test_capability_probe_survives_a_missing_binary(tmp_path):
     assert bootstrap.supports_token_tunnels(tmp_path / "gone") is False
