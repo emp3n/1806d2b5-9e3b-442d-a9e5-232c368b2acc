@@ -68,8 +68,10 @@ def test_running_card_shows_all_the_chips():
     state["connections"] = 4
     page = _render(state)
     facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures">')]
-    assert ' hidden' not in facts
-    assert 'data-tone="shard"' in facts
+    # row 3 (the picker) is hidden while running; rows 1-2 must be fully shown
+    head = facts[:facts.index('data-fact-row="3"')]
+    assert ' hidden' not in head
+    assert 'data-tone="shard"' in head
     assert 'data-tone="connections"' in facts
     assert 'data-fact-row="2"' in facts
 

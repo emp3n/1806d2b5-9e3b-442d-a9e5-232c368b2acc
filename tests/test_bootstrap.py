@@ -379,7 +379,7 @@ def test_restart_starts_the_new_connector_before_stopping_the_old_one(monkeypatc
                            hostname="streamlit.idealis.cc", pid=8000, mode="named")
     monkeypatch.setattr(bootstrap, "_cached", new)
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda: (TOKEN, "secret TEST"))
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     monkeypatch.setattr(bootstrap, "tunnel_status", lambda port, directory=None: {
         "pid": 7000, "extra": [], "ready": 1, "public": "https://streamlit.idealis.cc"})
 
@@ -400,7 +400,7 @@ def test_restart_starts_the_new_connector_before_stopping_the_old_one(monkeypatc
 def test_a_failed_restart_leaves_the_old_connector_running(monkeypatch):
     calls = []
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda: (TOKEN, "secret TEST"))
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     monkeypatch.setattr(bootstrap, "tunnel_status", lambda port, directory=None: {
         "pid": 7000, "extra": [], "ready": 1, "public": "https://streamlit.idealis.cc"})
     monkeypatch.setattr(bootstrap, "start_named_tunnel",
@@ -440,7 +440,7 @@ def test_a_stopped_tunnel_is_not_restarted_by_a_rerun(tmp_path, monkeypatch):
                         lambda *a, **k: started.append("named"))
     monkeypatch.setattr(bootstrap, "start_quick_tunnel",
                         lambda *a, **k: started.append("quick"))
-    monkeypatch.setattr(bootstrap, "download", lambda: started.append("download"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: started.append("download"))
     tunnel = bootstrap.ensure_tunnel(8501)
     assert tunnel.ok is False
     assert "stopped by the operator" in tunnel.detail
@@ -454,7 +454,7 @@ def test_an_explicit_start_overrides_the_remembered_stop(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "our_tunnels", lambda directory=None: [])
     monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda: (TOKEN, "secret TEST"))
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     monkeypatch.setattr(bootstrap, "start_named_tunnel",
                         lambda *a, **k: bootstrap.Tunnel(True, pid=31, mode="named"))
     tunnel = bootstrap.ensure_tunnel(8501, force=True)
@@ -476,7 +476,7 @@ def test_ensure_tunnel_adopts_before_it_starts_anything(tmp_path, monkeypatch):
                         lambda *a, **k: started.append("named"))
     monkeypatch.setattr(bootstrap, "start_quick_tunnel",
                         lambda *a, **k: started.append("quick"))
-    monkeypatch.setattr(bootstrap, "download", lambda: started.append("download"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: started.append("download"))
     tunnel = bootstrap.ensure_tunnel(8501)
     assert tunnel.ok and tunnel.pid == 9
     assert started == [], "an adoptable connector must not be replaced"
@@ -488,7 +488,7 @@ def test_ensure_tunnel_uses_the_token_when_there_is_one(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "adopt_running_tunnel", lambda port, verified=True: None)
     monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda: (TOKEN, "secret TEST"))
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     seen = {}
 
     def named(binary, port, token, **kwargs):
@@ -508,7 +508,7 @@ def test_ensure_tunnel_falls_back_to_a_quick_tunnel_without_a_token(tmp_path, mo
     monkeypatch.setattr(bootstrap, "adopt_running_tunnel", lambda port, verified=True: None)
     monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda: (None, "no tunnel token"))
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     monkeypatch.setattr(bootstrap, "start_named_tunnel",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("named")))
     monkeypatch.setattr(bootstrap, "start_quick_tunnel",
@@ -523,7 +523,7 @@ def test_ensure_tunnel_names_a_download_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "adopt_running_tunnel", lambda port, verified=True: None)
     monkeypatch.setattr(bootstrap, "retire_stale_tunnel", lambda keep=None, directory=None: "")
 
-    def boom():
+    def boom(*a, **k):
         raise OSError("no route to GitHub")
 
     monkeypatch.setattr(bootstrap, "download", boom)
@@ -549,7 +549,7 @@ def test_a_quick_connector_is_replaced_once_a_token_exists(tmp_path, monkeypatch
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda settings=None: (TOKEN, "secret TEST"))
     monkeypatch.setattr(bootstrap, "adopt_running_tunnel",
                         lambda port, verified=True: quick)
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     order = []
     monkeypatch.setattr(bootstrap, "start_named_tunnel",
                         lambda *a, **k: (order.append("start-named") or named))
@@ -575,7 +575,7 @@ def test_a_failed_named_start_leaves_the_quick_tunnel_serving(tmp_path, monkeypa
     monkeypatch.setattr(bootstrap, "tunnel_token", lambda settings=None: (TOKEN, "secret TEST"))
     monkeypatch.setattr(bootstrap, "adopt_running_tunnel",
                         lambda port, verified=True: quick)
-    monkeypatch.setattr(bootstrap, "download", lambda: pathlib.Path("/bin/cloudflared"))
+    monkeypatch.setattr(bootstrap, "download", lambda *a, **k: pathlib.Path("/bin/cloudflared"))
     monkeypatch.setattr(bootstrap, "start_named_tunnel",
                         lambda *a, **k: bootstrap.Tunnel(False, mode="named",
                                                          detail="did not register"))

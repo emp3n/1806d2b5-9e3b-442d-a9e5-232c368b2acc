@@ -94,7 +94,8 @@ def test_no_connector_is_a_state_not_a_guess():
                                    {"ok": False, "mode": "none", "ready": 0,
                                     "public": None})
     assert payload == {
-        "found": False, "origin": "8.8.8.8",
+        "found": False, "origin": "8.8.8.8", "chosen_version": "latest",
+        "versions": ["2026.11.1", "2026.10.4"],
         "origin_geo": {"cc": "US", "country": "United States",
                        "region": "California", "city": "Mountain View"},
         "tunnel": {"ok": False, "mode": "none", "pid": None, "ready": 0,

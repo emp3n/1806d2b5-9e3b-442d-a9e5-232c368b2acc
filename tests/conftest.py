@@ -8,6 +8,8 @@ is on this host (see ``test_live_binary.py``).
 
 from __future__ import annotations
 
+import io
+import json
 import os
 import sys
 from pathlib import Path
@@ -98,3 +100,25 @@ def collector(fake_proc):
     import live
 
     return live.Collector(metrics_url="")
+
+
+@pytest.fixture(autouse=True)
+def no_external_version_api(monkeypatch):
+    """The release list is fetched from GitHub once; tests answer it locally."""
+    import bootstrap
+
+    real = bootstrap.urllib.request.urlopen
+
+    class Reply(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def local(request, timeout=None):
+        url = getattr(request, "full_url", request if isinstance(request, str) else "")
+        if url == bootstrap.VERSIONS_API:
+            return Reply(json.dumps([{"name": "2026.11.1"},
+                                     {"name": "2026.10.4"}]).encode())
+        return real(request, timeout=timeout)
+
+    bootstrap.versions.cache_clear()
+    monkeypatch.setattr(bootstrap.urllib.request, "urlopen", local)

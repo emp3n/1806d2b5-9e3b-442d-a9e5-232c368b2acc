@@ -299,7 +299,7 @@ def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
     """On Community Cloud window.top is the wrapper at "/", while the app runs
     in an inner frame at "/~/+/". Navigating top dropped the ?rd= verb, and a
     sandbox forbids navigating an intermediate ancestor at all."""
-    assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
+    assert "{{rd: verb}}, '*'" in SCRIPT and "{{rd: 'version', version: value}}" in SCRIPT
     assert "window.parent.location" not in SCRIPT
     assert "window.top.location" not in SCRIPT
     shell = (CARD.parent.parent / "app.py").read_text()
@@ -351,8 +351,8 @@ def test_the_verbs_are_on_the_card_where_the_design_puts_them():
 def test_a_card_button_asks_the_app_instead_of_acting_itself():
     """An iframe cannot start a process. The button must not pretend to: it asks
     the app (?rd=<verb>), and the app is the only thing that performs a verb."""
-    assert "function fire(verb)" in SCRIPT
-    assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
+    assert "function fire(verb, value)" in SCRIPT
+    assert "{{rd: verb}}, '*'" in SCRIPT and "{{rd: 'version', version: value}}" in SCRIPT
     # no second port, no action route, no key
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
     assert "data-action=" not in CARD_SRC

@@ -47,7 +47,7 @@ def render(
     shard = str(state.get("shard") or "")
     edges_geo = state.get("edges_geo") or []
     edge_names = str(state.get("edge_names") or "")
-    show_shard = running and bool(shard)
+    show_shard = bool(shard)  # a deployment fact, not a process state
     show_edges = running and bool(edges_geo or edge_names not in ("", "—"))
     show_connections = running
     show_row2 = show_edges or show_connections
@@ -57,6 +57,19 @@ def render(
     show_side = running and (state.get("uptime") not in ("", "—")
                              or state.get("version") not in ("", "—"))
     show_path = running and state.get("path") not in ("", "—")
+    # While the connector is down, two empty bubbles are replaced by one real
+    # decision: which release to run next. The choice is a file on the server,
+    # not a number painted on the card.
+    show_version = not running
+    version = str(state.get("chosen_version") or "latest")
+    versions = ["latest"] + [str(v) for v in (state.get("versions") or [])
+                             if str(v) != "latest"]
+    version_options = "".join(
+        f'<button type="button" role="option" class="rd-version-opt" '
+        f'data-release="{esc(v)}" aria-selected="{"true" if v == version else "false"}">'
+        f'{esc(v)}</button>'
+        for v in versions
+    )
     hidden = " hidden"
 
     rails = "".join(
@@ -114,6 +127,20 @@ def render(
           </span>
           <span class="rd-fact" data-tone="connections"{"" if show_connections else hidden}>
             <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
+          </span>
+        </div>
+        <div class="rd-fact-row" data-fact-row="3"{"" if show_version else hidden}>
+          <span class="rd-fact rd-version" data-tone="version">
+            <em>version</em>
+            <button type="button" class="rd-version-btn" data-version-toggle
+                    aria-haspopup="listbox" aria-expanded="false" aria-label="Choose cloudflared version">
+              <span data-version-value>{esc(version)}</span>
+              <svg class="rd-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <span class="rd-version-menu" data-version-menu hidden>
+              <span class="rd-version-scroll" role="listbox" data-version-list
+                    aria-label="Cloudflare versions">{version_options}</span>
+            </span>
           </span>
         </div>
       </div>

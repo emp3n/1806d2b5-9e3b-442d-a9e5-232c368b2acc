@@ -84,6 +84,7 @@ st.markdown(
     .rd-alert b { display: block; margin-bottom: 2px; font-weight: 600; }
     /* the native buttons are only an input channel for the card's postMessage;
        they must stay in the DOM but never take space or be seen */
+    [class*="st-key-rd_version_"],
     .st-key-rd_verb_stop, .st-key-rd_verb_start, .st-key-rd_verb_restart {
       position: absolute !important; left: -9999px !important; top: 0 !important;
       width: 1px !important; height: 1px !important; overflow: hidden !important;
@@ -182,6 +183,20 @@ def _run_verb(verb: str) -> None:
     st.session_state.last_action = outcome
 
 
+def _run_version(version: str) -> None:
+    """The card's version picker asked us to run a particular release."""
+    sampler = statefeed.sampler(port)
+    if not use_live or not tunnel_managed:
+        outcome = {"ok": False, "action": "version", "version": version,
+                   "error": "the live source is off or this process does not manage the tunnel"}
+    else:
+        outcome = bootstrap.use_version(version, port)
+    outcome["at"] = int(time.time())
+    sampler.last_action = outcome
+    sampler.refresh()
+    st.session_state.last_action = outcome
+
+
 # One native button per verb. Pressed by the bridge below, never by a person:
 # a native click is a Streamlit rerun over the open socket, so the page does not
 # navigate and only the parts that changed are redrawn.
@@ -189,6 +204,14 @@ for _verb in ("stop", "start", "restart"):
     with st.container(key=f"rd_verb_{_verb}"):
         st.button(_verb, key=f"rd_button_{_verb}", on_click=_run_verb,
                   args=(_verb,))
+
+# One hidden button per release. Streamlit reruns over the open socket when a
+# native button is pressed, so the bridge can carry a version choice without
+# navigating or reloading the page. The keys are validated release tags.
+for _version in ["latest"] + bootstrap.versions():
+    with st.container(key=f"rd_version_{_version}"):
+        st.button(_version, key=f"rd_button_version_{_version}",
+                  on_click=_run_version, args=(_version,))
 
 state: dict = {}
 feed: statefeed.Sampler | None = None
@@ -276,6 +299,15 @@ st.html(
   window.__rdVerbBridge = true;
   window.addEventListener('message', function (event) {
     var verb = event.data && event.data.rd;
+    if (verb === 'version') {{
+      var pick = event.data.version;
+      if (!/^(latest|\\d{4}\\.\\d{1,2}\\.\\d{1,2})$/.test(pick)) return;
+      /* Streamlit turns dots in widget keys into dashes in the st-key class */
+      var key = pick.replace(/\\./g, '-');
+      var choice = document.querySelector('.st-key-rd_version_' + key + ' button');
+      if (choice) choice.click();
+      return;
+    }}
     if (verb !== 'stop' && verb !== 'start' && verb !== 'restart') return;
     var button = document.querySelector('.st-key-rd_verb_' + verb + ' button');
     if (button) button.click();

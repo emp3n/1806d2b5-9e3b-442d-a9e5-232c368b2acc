@@ -56,5 +56,7 @@ def edge_items(geo_list: list[dict[str, str]], fallback: str) -> str:
     for item in geo_list:
         code = esc(item.get("code", ""))
         flag = flag_img(item.get("cc", ""), "rd-flag rd-flag--edge", "edge")
-        pieces.append(f'<span class="rd-edge">{code}{flag}</span>')
+        count = int(item.get("count") or 1)
+        badge = f'<sup class="rd-edge-count">×{count}</sup>' if count > 1 else ""
+        pieces.append(f'<span class="rd-edge">{code}{flag}{badge}</span>')
     return '<span class="rd-comma">, </span>'.join(pieces)

@@ -86,15 +86,25 @@ def existing_binary(directory: Path | None = None) -> Path | None:
 
 
 def download(directory: Path | None = None, version: str = VERSION,
-             opener=None) -> Path:
-    """Fetch cloudflared into .temp/ and make it executable.
+             opener=None, force: bool = False) -> Path:
+    """Fetch one cloudflared release into .temp/ and make it executable.
 
     The download goes to a temporary file first: a half-written 40 MB binary
-    must never be mistaken for a working one on the next app rerun.
+    must never be mistaken for a working one on the next app rerun. The small
+    marker next to it says which release the binary is, so picking another
+    version in the card really replaces it instead of silently reusing the old
+    one forever.
     """
     directory = directory or runtime_dir()
     target = directory / "cloudflared"
-    if target.is_file() and os.access(target, os.X_OK):
+    marker = directory / "cloudflared.installed"
+    installed = ""
+    try:
+        installed = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if (not force and installed == version and target.is_file()
+            and os.access(target, os.X_OK)):
         return target
     url = download_url(version)
     fetch = opener or urllib.request.urlopen
@@ -107,7 +117,8 @@ def download(directory: Path | None = None, version: str = VERSION,
         raise RuntimeError(f"suspiciously small cloudflared download: {url}")
     partial.replace(target)
     target.chmod(0o755)
-    print(f"cloudflared: binary ready ({target.stat().st_size} bytes)", flush=True)
+    marker.write_text(version + "\n", encoding="utf-8")
+    print(f"cloudflared: binary ready v{version} ({target.stat().st_size} bytes)", flush=True)
     return target
 
 

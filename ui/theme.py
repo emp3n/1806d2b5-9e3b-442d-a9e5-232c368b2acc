@@ -233,8 +233,70 @@ __TOKEN_BLOCKS__
 .rd-fact[data-tone="shard"] { font-variant-numeric: tabular-nums; }
 .rd-edge-list { display: inline-flex; flex-wrap: wrap; align-items: center; }
 .rd-edge { display: inline-flex; align-items: flex-start; gap: 1px; white-space: nowrap; }
+/* two tunnels to the same airport are one chip with an honest count, not two
+   identical bubbles that look like different edges */
+.rd-edge-count {
+  margin-left: 2px; font-size: 10px; line-height: 1; color: var(--acc);
+  font-variant-numeric: tabular-nums; transform: translateY(-2px);
+}
 .rd-comma { color: var(--muted); }
 .rd-fact[data-tone="mem"] { background: var(--chip-tint); }
+
+/* ---------- version picker (the stopped card's one real decision) ----------
+   A native select would inherit the host's list and its scrollbar. This one
+   is ours: a button, an animated panel, a genuinely scrollable list and
+   keyboard/click-away behaviour owned by the card's own script. */
+.rd-version { position: relative; display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; }
+.rd-version-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 2px 7px; border-radius: 7px; background: var(--raised);
+  font-family: "RD Russo"; font-size: 13px; color: var(--text);
+  transition: background-color var(--fast), color var(--fast), box-shadow var(--fast);
+}
+.rd-version-btn:hover, .rd-version-btn:focus-visible { background: var(--sunken); }
+.rd-chevron {
+  width: 12px; height: 12px; fill: none; stroke: currentColor;
+  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+}
+.rd-version-btn[aria-expanded="true"] .rd-chevron { transform: rotate(180deg); }
+.rd-version.is-busy .rd-version-btn { animation: rd-pulse 1s ease-in-out infinite; }
+.rd-version-menu {
+  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0;
+  padding: 5px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--card); box-shadow: var(--shadow);
+  transform-origin: top center;
+  animation: rd-menu-in 190ms cubic-bezier(.2,.8,.2,1) both;
+}
+.rd-version-menu[hidden] { display: none; }
+.rd-version-scroll {
+  display: block; max-height: 224px; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--muted) transparent;
+}
+.rd-version-scroll::-webkit-scrollbar { width: 7px; }
+.rd-version-scroll::-webkit-scrollbar-track { background: transparent; }
+.rd-version-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted); border-radius: 7px; border: 2px solid var(--card);
+}
+.rd-version-scroll::-webkit-scrollbar-thumb:hover { background: var(--text); }
+.rd-version-opt {
+  display: block; width: 100%; text-align: left; padding: 7px 10px;
+  border-radius: 8px; font-size: 13px; color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.rd-version-opt:hover, .rd-version-opt:focus-visible {
+  background: var(--sunken); transform: translateX(2px);
+}
+.rd-version-opt[aria-selected="true"] { background: var(--acc-tint); color: var(--acc); }
+@keyframes rd-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scaleY(.94); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 3px var(--acc-tint); }
+}
 
 /* ---------- measures ---------- */
 .rd-measures { display: grid; grid-template-columns: minmax(0, 1fr) 124px; gap: 8px; }

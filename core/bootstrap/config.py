@@ -6,6 +6,7 @@ Layer ``config``. Public names are re-exported flat by
 from __future__ import annotations
 
 from __future__ import annotations
+import functools
 import json
 import os
 import platform
@@ -27,6 +28,15 @@ _public_failures: dict[int, tuple[int, float]] = {}
 
 _cached: Tunnel | None = None
 VERSION = "2026.11.1"
+
+# The remembered choice lives beside the intent and the token: one small file
+# that survives a Streamlit rerun, a page reload and a script reboot, and is
+# wiped with the container. "latest" means "the newest published tag".
+VERSION_FILE = "cloudflared.version"
+VERSIONS_API = "https://api.github.com/repos/cloudflare/cloudflared/tags?per_page=100"
+VERSIONS_TIMEOUT = 2.0
+TAG_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}$")
+FALLBACK_VERSIONS = (VERSION, "2026.11.0", "2026.10.7", "2026.10.4", "2026.10.3")
 
 BASE = "https://github.com/cloudflare/cloudflared/releases/download"
 
@@ -134,6 +144,66 @@ def set_desired(state: str, directory: Path | None = None) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(state + "\n", encoding="utf-8")
     return state
+
+
+def version_path(directory: Path | None = None) -> Path:
+    return (directory or runtime_dir()) / VERSION_FILE
+
+
+def desired_version(directory: Path | None = None) -> str:
+    """The version the operator picked, or ``latest`` before any pick."""
+    try:
+        value = version_path(directory).read_text(encoding="utf-8").strip()
+    except OSError:
+        return "latest"
+    if value == "latest" or TAG_RE.fullmatch(value):
+        return value
+    return "latest"  # a corrupt file must never turn into a bad download URL
+
+
+def set_desired_version(value: str, directory: Path | None = None) -> str:
+    """Persist a version tag after validating it as a URL path component."""
+    name = str(value).strip()
+    if name != "latest" and not TAG_RE.fullmatch(name):
+        raise ValueError(f"not a cloudflared version tag: {name!r}")
+    path = version_path(directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(name + "\n", encoding="utf-8")
+    return name
+
+
+@functools.lru_cache(maxsize=1)
+def _versions_cached() -> tuple[str, ...]:
+    """Published tags, newest first. One call per process; no browser access."""
+    try:
+        request = urllib.request.Request(
+            VERSIONS_API,
+            headers={"User-Agent": "apllme-card",
+                     "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(request, timeout=VERSIONS_TIMEOUT) as reply:
+            data = json.loads(reply.read(256_000))
+        tags = [str(item.get("name") or "") for item in data
+                if isinstance(item, dict)]
+        good = tuple(tag for tag in tags if TAG_RE.fullmatch(tag))
+        return good or FALLBACK_VERSIONS
+    except Exception:  # noqa: BLE001 - a blocked API still leaves a usable list
+        return FALLBACK_VERSIONS
+
+
+def versions() -> list[str]:
+    return list(_versions_cached())
+
+
+versions.cache_clear = _versions_cached.cache_clear
+
+
+def resolved_version() -> str:
+    """Turn the remembered choice into a concrete release tag."""
+    chosen = desired_version()
+    if chosen == "latest":
+        available = versions()
+        return available[0] if available else VERSION
+    return chosen
 
 
 def tunnel_token(settings=None) -> tuple[str | None, str]:

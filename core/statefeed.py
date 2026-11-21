@@ -111,8 +111,10 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         # disappear with it: our own public endpoint is still resolvable. The
         # chip keeps a real address and region, the empty bubbles stay hidden.
         origin, origin_geo = geo.own_endpoint()
-        payload: dict[str, Any] = {"found": False, "origin": origin,
-                                   "origin_geo": origin_geo}
+        payload: dict[str, Any] = {
+            "found": False, "origin": origin, "origin_geo": origin_geo,
+            "chosen_version": bootstrap.desired_version(), "versions": bootstrap.versions(),
+        }
         if last_action:
             payload["last_action"] = last_action
         if tunnel:
@@ -155,6 +157,8 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "proc_state": state["proc_state"],
         "source_label": state["source_label"],
         "register_fail": state.get("register_fail", 0),
+        "chosen_version": bootstrap.desired_version(),
+        "versions": bootstrap.versions(),
         "tunnel": {
             "ok": bool(tunnel.get("ok")),
             "mode": tunnel.get("mode") or "none",

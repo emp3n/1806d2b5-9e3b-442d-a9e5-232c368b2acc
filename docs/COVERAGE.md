@@ -9,7 +9,7 @@ python3 -m pytest tests -q --cov=core --cov=ui --cov-report=term
 Сырой вывод сохранён в `docs/COVERAGE.txt`.
 
 ```
-TOTAL  1943 statements   0 missed 100%      340 passed, 1 skipped
+TOTAL  2019 statements   0 missed 100%      361 passed, 1 skipped
 ```
 
 | Модуль | Покрытие | Комментарий |
@@ -28,7 +28,7 @@ TOTAL  1943 statements   0 missed 100%      340 passed, 1 skipped
 
 Покрыты **все контракты и все точки входа**, а не каждый мусорный catch-блок:
 
-- все эндпоинты: `state.json`, `/ready`, `/metrics`, ipwho.is, ipapi.co, ipinfo.io, disambiguate,
+- все эндпоинты: `state.json`, `/ready`, `/metrics`, ipwho.is, ipapi.co, ipinfo.io, GitHub tags API, disambiguate,
   локальные SVG, `/_stcore/health`;
 - все состояния карточки: live, sample, stop, incident, stalled, lost feed;
 - все три палитры × две моды, все breakpoint'ы и адаптивные правила;

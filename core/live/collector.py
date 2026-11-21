@@ -197,10 +197,17 @@ class Collector:
             if not info:
                 continue
             code = conn.get("location") or ""
-            if any(item["code"] == code for item in edges_geo):
+            # Two QUIC tunnels can land on the same airport. Cloudflare logs
+            # that twice on purpose; one chip per colo with an honest ×N badge
+            # says the same thing without pretending there are N different
+            # edges. Dropping the duplicates (or printing them all) was wrong.
+            existing = next((item for item in edges_geo if item["code"] == code), None)
+            if existing is not None:
+                existing["count"] += 1
                 continue
             edges_geo.append({"code": code, "cc": info["cc"],
-                              "region": info["region"], "city": info["city"]})
+                              "region": info["region"], "city": info["city"],
+                              "count": 1})
         # four connections usually land on two edges, and listing the same
         # airport twice ("sea01, sea07, sea07, sea01") reads as a bug in the
         # numbers rather than as two QUIC tunnels to each edge
@@ -311,6 +318,9 @@ def idle_state() -> dict[str, Any]:
     # Origin survives a stopped connector: resolve our own endpoint once.
     own_ip, own_geo = geo.own_endpoint()
     state = build_state(0)
+    # the cluster belongs to the deployment, not to the process: it stays on
+    # the card even while the connector is stopped
+    state["shard"] = geo.shard(bootstrap.cloud_url())
     zeros = [0.0] * SAMPLES
     cpu_levels = [level(0.0, "cpu")] * SAMPLES
     mem_levels = [level(0.0, "mem")] * SAMPLES

@@ -19,6 +19,7 @@ import time
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # constants are repeated in every layer so default arguments evaluate at import
 _child_procs: list[subprocess.Popen] = []
@@ -516,7 +517,7 @@ def ensure_tunnel(port: int, *, force: bool = False, wait_s: float = 30.0,
             print(f"cloudflared: {retired}", flush=True)
         token, source = tunnel_token()
         try:
-            binary = download()
+            binary = download(version=resolved_version())
             if token:
                 tunnel = start_named_tunnel(binary, port, token, wait_s=wait_s,
                                             token_source=source)
@@ -544,7 +545,7 @@ def _replace_with_named(port: int, old: Tunnel, wait_s: float) -> Tunnel:
     if not token:
         return old
     try:
-        binary = download()
+        binary = download(version=resolved_version())
         fresh = start_named_tunnel(binary, port, token, wait_s=wait_s,
                                    token_source=source)
     except Exception as exc:  # noqa: BLE001 - reported, not raised
@@ -580,7 +581,7 @@ def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
         old = [pid for pid in ([before.get("pid")] + list(before.get("extra") or []))
                if pid]
         token, source = tunnel_token()
-        binary = download()
+        binary = download(version=resolved_version())
         if token:
             tunnel = start_named_tunnel(binary, port, token, wait_s=wait_s,
                                         token_source=source)
@@ -596,3 +597,34 @@ def restart_tunnel(port: int, *, wait_s: float = 30.0) -> Tunnel:
         print(f"cloudflared: restart finished in {time.monotonic() - started:.2f}s",
               flush=True)
         return tunnel
+
+
+def use_version(version: str, port: int, wait_s: float = 30.0) -> dict[str, Any]:
+    """Remember a release, download it and bring a connector up with it.
+
+    The version picker lives in the card's stopped state, where the user is
+    choosing what to run — not just what to display. A choice is a real verb:
+    validate + persist first, stop whatever is on the port, then let
+    ``ensure_tunnel`` fetch the chosen release and register it. If the old
+    process refuses to die we leave the choice recorded but say why the start
+    did not happen, instead of starting a second connector on the same port.
+    """
+    chosen = set_desired_version(version)
+    forget_tunnel()
+    status = tunnel_status(port)
+    pids = [pid for pid in ([status.get("pid")] + list(status.get("extra") or []))
+            if pid]
+    if pids:
+        stopped = stop_tunnel(pids)
+        if not stopped.get("ok"):
+            return {"ok": False, "action": "version", "version": chosen,
+                    "error": f"old connector survived: {stopped.get('survivors')}"}
+    set_desired("on")
+    try:
+        tunnel = ensure_tunnel(port, force=True, wait_s=wait_s)
+    except Exception as exc:  # noqa: BLE001 - the card must name the failure
+        return {"ok": False, "action": "version", "version": chosen,
+                "error": f"{type(exc).__name__}: {exc}"}
+    return {"ok": bool(tunnel.ok), "action": "version", "version": chosen,
+            "actual": resolved_version(), "pid": getattr(tunnel, "pid", None),
+            "detail": "" if tunnel.ok else (tunnel.detail or tunnel.message)}

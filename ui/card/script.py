@@ -29,7 +29,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
     var card = document.querySelector('.rd-card');
     var toast = document.getElementById('rd-toast');
     var unit = 'MB';
-    var flagSig = '', edgeSig = '';
+    var flagSig = '', edgeSig = '', versionSig = '', lastPicked = '', versionMenuOpen = false;
     var W = 100, H = 24, PAD = 3;
 
     function say(text, tone) {{
@@ -65,7 +65,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       set('[data-origin-geo]', g ? (g.city || g.region || '') : '');
       set('[data-shard]', (data && data.shard) || '');
       var edges = (data && data.edges_geo) || [];
-      var sig = edges.map(function (e) {{ return (e.code || '') + ':' + (e.cc || ''); }}).join('|')
+      var sig = edges.map(function (e) {{ return (e.code || '') + ':' + (e.cc || '') + ':' + (e.count || 1); }}).join('|')
                 + '#' + ((data && data.edges) || '');
       if (sig === edgeSig) return;
       edgeSig = sig;
@@ -78,6 +78,12 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
           wrap.className = 'rd-edge';
           wrap.appendChild(document.createTextNode(item.code || ''));
           if (/^[A-Z]{{2}}$/.test(item.cc || '')) wrap.appendChild(flagNode(item.cc, true));
+          if ((item.count || 1) > 1) {{
+            var badge = document.createElement('sup');
+            badge.className = 'rd-edge-count';
+            badge.textContent = '×' + item.count;
+            wrap.appendChild(badge);
+          }}
           list.appendChild(wrap);
         }});
         if (!edges.length) list.textContent = (data && data.edges) || '';
@@ -97,7 +103,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       var edges = (data && data.edges_geo) || [];
       var names = (data && data.edges) || '';
       var hasEdges = live && (edges.length > 0 || (names && names !== '—'));
-      var hasShard = live && !!((data && data.shard) || '');
+      var hasShard = !!((data && data.shard) || '');  // the cluster outlives the process
       var hasSide = live && !!((data.uptime && data.uptime !== '—')
                                || (data.version && data.version !== '—'));
       var hasPath = live && !!(data.path && data.path !== '—');
@@ -105,12 +111,83 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
        ['[data-tone="edges"]', hasEdges],
        ['[data-tone="connections"]', live],
        ['[data-fact-row="2"]', live],
+       ['[data-fact-row="3"]', !live],
        ['.rd-side', hasSide],
        ['.rd-path', hasPath]].forEach(function (pair) {{
         var node = document.querySelector(pair[0]);
         if (node) node.hidden = !pair[1];
       }});
     }}
+    /* ---- version picker ----
+       The list is rebuilt only when the choice or the release set changes,
+       so a 500 ms poll never steals the scroll position or an open menu. */
+    function closeVersionMenu() {{
+      var menu = document.querySelector('[data-version-menu]');
+      var btn = document.querySelector('[data-version-toggle]');
+      if (menu) menu.hidden = true;
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      versionMenuOpen = false;
+    }}
+    function paintVersion(data) {{
+      var btn = document.querySelector('[data-version-toggle]');
+      var val = document.querySelector('[data-version-value]');
+      var list = document.querySelector('[data-version-list]');
+      if (!btn || !val || !list) return;
+      var chosen = (data && data.chosen_version) || 'latest';
+      var all = (data && data.versions) || [];
+      var sig = chosen + '|' + all.join(',');
+      if (sig !== versionSig) {{
+        versionSig = sig;
+        list.textContent = '';
+        var names = chosen === 'latest'
+          ? ['latest'].concat(all.filter(function (v) {{ return v !== 'latest'; }}))
+          : all;
+        names.forEach(function (v) {{
+          var opt = document.createElement('button');
+          opt.type = 'button';
+          opt.className = 'rd-version-opt';
+          opt.setAttribute('role', 'option');
+          opt.setAttribute('data-release', v);
+          opt.setAttribute('aria-selected', String(v === chosen));
+          opt.textContent = v;
+          list.appendChild(opt);
+        }});
+      }}
+      if (val.textContent !== chosen) val.textContent = chosen;
+      var chip = document.querySelector('.rd-version');
+      if (chip && chosen === lastPicked) {{ chip.classList.remove('is-busy'); lastPicked = ''; }}
+    }}
+    var versionToggle = document.querySelector('[data-version-toggle]');
+    var versionMenu = document.querySelector('[data-version-menu]');
+    if (versionToggle && versionMenu) {{
+      versionToggle.addEventListener('click', function () {{
+        var open = versionMenu.hidden;
+        versionMenu.hidden = !open;
+        versionToggle.setAttribute('aria-expanded', String(open));
+        versionMenuOpen = open;
+      }});
+      versionMenu.addEventListener('click', function (event) {{
+        var opt = event.target.closest && event.target.closest('[data-release]');
+        if (!opt) return;
+        var value = opt.getAttribute('data-release');
+        if (!/^(latest|\\d{{4}}\\.\\d{{1,2}}\\.\\d{{1,2}})$/.test(value)) return;
+        closeVersionMenu();
+        var chip = document.querySelector('.rd-version');
+        if (chip) chip.classList.add('is-busy');
+        lastPicked = value;
+        set('[data-version-value]', value);
+        set('[data-status-text]', 'Downloading ' + value + '…');
+        fire('version', value);
+      }});
+    }}
+    document.addEventListener('click', function (event) {{
+      if (!versionMenuOpen) return;
+      if (event.target.closest && event.target.closest('[data-tone="version"]')) return;
+      closeVersionMenu();
+    }});
+    document.addEventListener('keydown', function (event) {{
+      if (event.key === 'Escape' && versionMenuOpen) closeVersionMenu();
+    }});
     /* no process: dashes, not the last flattering numbers, and a line that
        decays to flat instead of freezing mid-air. Origin is the exception —
        it keeps the public address resolved by the sampler. */
@@ -471,13 +548,14 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       if (tip) tip.textContent = 'Restart';
     }}
 
-    function fire(verb) {{
+    function fire(verb, value) {{
       /* The card cannot navigate its parent: on Community Cloud the whole app
          is itself a sandboxed viewer frame, so any ancestor navigation from a
          descendant is blocked by the browser. The app document installed a
-         guarded postMessage bridge (app.py) that reloads ITSELF with ?rd=;
-         the message carries only one of three fixed verbs, nothing secret. */
-      window.parent.postMessage({{rd: verb}}, '*');
+         guarded postMessage bridge (app.py) that presses the matching native
+         button. The version verb carries a validated tag, nothing secret. */
+      window.parent.postMessage(verb === 'version'
+        ? {{rd: 'version', version: value}} : {{rd: verb}}, '*');
     }}
 
     if (powerBtn) {{
@@ -522,6 +600,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       /* the heartbeat still has to be observed — the stale look is driven by
          an unchanged stamp, not by a line of text that used to live in a footer */
       beat(data);
+      paintVersion(data);
       /* The verb's result travels in the SAME file as the numbers: no page
          reload, no Streamlit toast in the top corner. Show it once in the
          card's own bottom notification, in the card's own design. */
