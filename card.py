@@ -226,8 +226,8 @@ def render(
         <span class="rd-fact">
           <em>Edges</em><span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
         </span>
-        <span class="rd-fact" data-tone="viewers">
-          <em>users</em><span data-viewers>{int(state.get("viewers", 0) or 0)}</span>
+        <span class="rd-fact" data-tone="connections">
+          <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
         </span>
       </div>
 
@@ -361,14 +361,14 @@ def render(
         if (!edges.length) list.textContent = (data && data.edges) || '';
       }}
     }}
-    function paintViewers(data) {{
-      set('[data-viewers]', String((data && data.viewers) || 0));
+    function paintConnections(data) {{
+      set('[data-connections]', String((data && data.connections) || 0));
     }}
     /* no process: dashes, not the last flattering numbers, and a line that
        decays to flat instead of freezing mid-air */
     function blank() {{
       paintGeo({{}});
-      paintViewers({{}});
+      paintConnections({{}});
       set('[data-source]', 'live · no cloudflared process');
       set('[data-fact="origin"]', '—');
       set('[data-fact="edges"]', '—');
@@ -813,7 +813,7 @@ def render(
       set('[data-fact="origin"]', data.origin);
       set('[data-fact="edges"]', data.edges);
       paintGeo(data);
-      paintViewers(data);
+      paintConnections(data);
       set('[data-uptime]', data.uptime);
       set('[data-version]', data.version);
       set('[data-path]', data.path);
@@ -849,7 +849,7 @@ def render(
        is a chain now (a slow reply cannot stack up behind the next one), it
        backs off while the feed is gone, it resumes the moment the page comes
        back, and it names the failure instead of freezing on it. */
-    var BEAT = 1000, PATIENCE = 4000, CEILING = 10000;
+    var BEAT = 250, PATIENCE = 4000, CEILING = 10000;
     var misses = 0, beatTimer = null, lastActionAt = '';
 
     function lose() {{

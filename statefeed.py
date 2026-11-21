@@ -35,7 +35,7 @@ from live import Collector
 import geo
 from resources import available_cores, cores_text
 
-INTERVAL = 1.0
+INTERVAL = 0.25
 FILENAME = "state.json"
 
 # Starlette's stream_file() takes Content-Length from stat() and only then reads
@@ -125,9 +125,8 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
         "found": True,
         "pid": state["pid"],
         "live": state["live"],
-        # Viewers holding an active connection through our tunnel replica,
-        # counted from cloudflared's own sockets to the local ingress port.
-        "viewers": int(state.get("viewers", 0) or 0),
+        # Live connections routed to the app through the tunnel replica.
+        "connections": int(state.get("connections", 0) or 0),
         "note": state.get("note", ""),
         "status_text": state_text(state),
         "status_state": "up" if state["connected"] else "down",

@@ -238,26 +238,25 @@ def test_shard_is_its_own_chip_beside_origin_not_inside_it():
     assert "shard - " not in page and "shard - " not in SCRIPT
 
 
-def test_viewers_chip_sits_in_the_edges_row():
+def test_connections_chip_sits_in_the_edges_row():
     from card import render
     from demo_data import build_state
 
     state = build_state(0)
     state["shard"] = "shard-3"
-    state["viewers"] = 5
+    state["connections"] = 5
     page = render(state, theme="dark")
     start = page.index('<div class="rd-facts">')
     facts = page[start:page.index('</div>', start)]
-    edges_at = facts.index('data-edge-list')
-    viewers_at = facts.index('data-tone="viewers"')
-    assert edges_at < viewers_at
-    assert '<em>users</em><span data-viewers>5</span>' in facts
-    assert 'data-tone="viewers"' not in facts[:facts.index('data-tone="shard"')]
-    assert '<em>users</em><span data-viewers>0</span>' in render(
+    assert facts.index('data-edge-list') < facts.index('data-tone="connections"')
+    assert '<em>connections</em><span data-connections>5</span>' in facts
+    assert 'data-tone="connections"' not in facts[:facts.index('data-tone="shard"')]
+    assert '<em>connections</em><span data-connections>0</span>' in render(
         build_state(0, incident=True), theme="dark")
-    assert "function paintViewers(data)" in SCRIPT
-    assert "paintViewers(data);" in SCRIPT and "paintViewers({{}});" in SCRIPT
-    assert "set('[data-viewers]', String((data && data.viewers) || 0))" in SCRIPT
+    assert "function paintConnections(data)" in SCRIPT
+    assert "paintConnections(data);" in SCRIPT and "paintConnections({{}});" in SCRIPT
+    assert "set('[data-connections]', String((data && data.connections) || 0))" in SCRIPT
+    assert "var BEAT = 250" in SCRIPT
 
 
 def test_geo_paint_is_guarded_against_injected_codes():

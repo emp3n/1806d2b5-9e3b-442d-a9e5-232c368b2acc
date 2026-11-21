@@ -633,7 +633,7 @@ def idle_state() -> dict[str, Any]:
         "host": host(),
         "connected": False,
         "live": 0,
-        "viewers": 0,
+        "connections": 0,
         "note": "",
         "edges": [],
         "edge_names": "—",
@@ -905,7 +905,7 @@ class Collector:
             "ha_connections": int(self._metrics.get("ha_connections", 0)),
             # Viewers through THIS replica: sockets owned by cloudflared to the
             # local ingress, not Cloudflare-side or proxy traffic.
-            "viewers": sessions.active_sessions(self.pid, bootstrap.ingress_port()),
+            "connections": sessions.connections(self.pid, bootstrap.ingress_port()),
             "requests": int(self._metrics.get("requests", 0)),
             "gaps": self.gaps(),
         }

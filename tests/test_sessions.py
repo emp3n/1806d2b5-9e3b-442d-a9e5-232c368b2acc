@@ -55,3 +55,24 @@ def test_a_dead_or_missing_process_is_zero(tmp_path, monkeypatch):
     monkeypatch.setattr(sessions, "PROC", proc)
     assert sessions.active_sessions(None, 8501) == 0
     assert sessions.active_sessions(9999, 8501) == 0
+
+
+def test_the_combined_count_uses_the_larger_end(tmp_path, monkeypatch):
+    # cloudflared's client side holds 2 origin sockets; the app's accepted side
+    # sees 4 live connections. The published number must be the larger one.
+    client = """\
+  sl  local_address rem_address   st tx_queue:rx_queue tr:tm->when retrnsmt   uid  timeout inode
+   1: 0100007F:1234 0100007F:2135 01 0 0 0 0 0 111
+   2: 0100007F:1235 0100007F:2135 01 0 0 0 0 0 222
+"""
+    server = """\
+  sl  local_address rem_address   st tx_queue:rx_queue tr:tm->when retrnsmt   uid  timeout inode
+   1: 0100007F:2135 0100007F:1301 01 0 0 0 0 0 901
+   2: 0100007F:2135 0100007F:1302 01 0 0 0 0 0 902
+   3: 0100007F:2135 0100007F:1303 01 0 0 0 0 0 903
+   4: 0100007F:2135 0100007F:1304 01 0 0 0 0 0 904
+"""
+    monkeypatch.setattr(sessions, "PROC", _proc(tmp_path, tcp=client, tcp6=server))
+    assert sessions.active_sessions(4242, 8501) == 2
+    assert sessions.ingress_sessions(8501) == 4
+    assert sessions.connections(4242, 8501) == 4

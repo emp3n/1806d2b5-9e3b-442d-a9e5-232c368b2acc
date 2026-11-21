@@ -50,7 +50,7 @@ def _rows(table: str):
 
 
 def active_sessions(pid: int | None, port: int) -> int:
-    """How many proxied connections the replica holds to the app right now."""
+    """Client-side sockets our replica holds to the local app right now."""
     if not pid or port <= 0:
         return 0
     inodes = socket_inodes(pid)
@@ -67,3 +67,31 @@ def active_sessions(pid: int | None, port: int) -> int:
             except (ValueError, IndexError):
                 continue
     return count
+
+
+def ingress_sessions(port: int) -> int:
+    """Every live socket accepted on the app's ingress port (server side).
+
+    cloudflared multiplexes many client streams over a small pool of origin
+    connections, so counting only its client sockets undercounts badly. The
+    server side of the same connections is owned by the app process and sees
+    each accepted socket, websockets included.
+    """
+    if port <= 0:
+        return 0
+    count = 0
+    for table in TABLES:
+        for fields in _rows(table):
+            if fields[3] != ESTABLISHED:
+                continue
+            try:
+                if int(fields[1].split(":")[1], 16) == port:
+                    count += 1
+            except (ValueError, IndexError):
+                continue
+    return count
+
+
+def connections(pid: int | None, port: int) -> int:
+    """The larger of both ends: the live connections routed to the app."""
+    return max(active_sessions(pid, port), ingress_sessions(port))

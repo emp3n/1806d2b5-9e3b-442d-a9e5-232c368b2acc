@@ -74,10 +74,11 @@ def test_the_payload_carries_what_the_card_paints():
     assert "<" not in json.dumps(payload)
 
 
-def test_the_payload_carries_the_active_viewer_count():
-    """The count comes from our replica's sockets, not /ready or HA gauges."""
-    payload = statefeed.to_payload(full_state(viewers=5))
-    assert payload["viewers"] == 5
+def test_the_payload_carries_the_active_connection_count():
+    """The count comes from the tunnel's live sockets, not /ready or HA gauges."""
+    payload = statefeed.to_payload(full_state(connections=5))
+    assert payload["connections"] == 5
+    assert statefeed.INTERVAL == 0.25
     assert "conn_live" not in payload and "conn_ha" not in payload
 
 

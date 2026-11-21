@@ -194,9 +194,14 @@ __TOKEN_BLOCKS__
 .rd-round:hover .rd-tip, .rd-round:focus-visible .rd-tip { opacity: 1; transform: none; }
 
 /* ---------- facts: the two chips, no dots ---------- */
-.rd-facts { display: flex; flex-wrap: wrap; gap: 6px; }
+/* two explicit rows: Origin | shard, then Edges | connections. A plain
+   flex-wrap let the long "connections" label drop to a third line. */
+.rd-facts {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px; align-items: start;
+}
 .rd-fact {
-  padding: 4px 10px; border-radius: 8px; font-size: 13px;
+  min-width: 0; padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
 }
 .rd-fact { gap: 7px; }
