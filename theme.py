@@ -415,6 +415,17 @@ __TOKEN_BLOCKS__
   .rd-side { grid-template-rows: auto; grid-template-columns: 1fr 1fr; }
   .rd-toast { bottom: calc(var(--dock) + 12px + env(safe-area-inset-bottom)); }
 }
+/* Phone: the facts cannot share a row once the card is narrower than ~360px.
+   Stacking them keeps every value readable and removes the half-empty right
+   chip that appeared when only one of the pair wrapped. */
+@media (max-width: 520px) {
+  .rd-fact-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .rd-fact-row > .rd-fact,
+  .rd-fact-row > .rd-fact:first-child,
+  .rd-fact-row > .rd-fact:last-child { flex: 0 0 auto; max-width: 100%; }
+  .rd-geo { white-space: normal; }
+  .rd-edge-list { flex-wrap: wrap; }
+}
 @media (max-width: 430px) {
   .rd-stage { --dock: 72px; }  /* 10 + 52 + 10 */
   .rd-rail { padding-left: 8px; padding-right: 8px; }

@@ -233,6 +233,7 @@ state_url = bootstrap.CARD_STATE_PATH if use_live else None
 
 page = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
     f'<meta name="theme-color" content="{meta_light}" media="(prefers-color-scheme: light)">'
     f'<meta name="theme-color" content="{meta_dark}" media="(prefers-color-scheme: dark)">'
     f"<style>{THEME_CSS}</style></head><body>"
