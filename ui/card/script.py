@@ -113,67 +113,85 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
        ['[data-fact-row="2"]', live],
        ['[data-fact-row="3"]', !live],
        ['.rd-side', hasSide],
-       ['.rd-path', hasPath]].forEach(function (pair) {{
+       ['.rd-path', hasPath],
+       ['.rd-measures', live],
+       ['[data-tone="mem"]', live]].forEach(function (pair) {{
         var node = document.querySelector(pair[0]);
         if (node) node.hidden = !pair[1];
       }});
     }}
-    /* ---- version picker ----
-       The list is rebuilt only when the choice or the release set changes,
-       so a 500 ms poll never steals the scroll position or an open menu. */
+    /* ---- version picker: a full-width panel that grows the card ---- */
     function closeVersionMenu() {{
-      var menu = document.querySelector('[data-version-menu]');
+      var box = document.querySelector('[data-tone="version"]');
       var btn = document.querySelector('[data-version-toggle]');
-      if (menu) menu.hidden = true;
+      if (box) box.classList.remove('is-open');
       if (btn) btn.setAttribute('aria-expanded', 'false');
       versionMenuOpen = false;
     }}
     function paintVersion(data) {{
-      var btn = document.querySelector('[data-version-toggle]');
       var val = document.querySelector('[data-version-value]');
       var list = document.querySelector('[data-version-list]');
-      if (!btn || !val || !list) return;
+      if (!val || !list) return;
       var chosen = (data && data.chosen_version) || 'latest';
       var all = (data && data.versions) || [];
-      var sig = chosen + '|' + all.join(',');
+      var sig = chosen + '|' + all.map(function (r) {{
+        return (r.tag || '') + ':' + (r.age || '') + ':' + (r.pre ? 1 : 0);
+      }}).join(',');
       if (sig !== versionSig) {{
         versionSig = sig;
         list.textContent = '';
-        var names = chosen === 'latest'
-          ? ['latest'].concat(all.filter(function (v) {{ return v !== 'latest'; }}))
-          : all;
-        names.forEach(function (v) {{
+        function add(tag, age, pre) {{
           var opt = document.createElement('button');
           opt.type = 'button';
           opt.className = 'rd-version-opt';
           opt.setAttribute('role', 'option');
-          opt.setAttribute('data-release', v);
-          opt.setAttribute('aria-selected', String(v === chosen));
-          opt.textContent = v;
+          opt.setAttribute('data-release', tag);
+          opt.setAttribute('aria-selected', String(tag === chosen));
+          var name = document.createElement('span');
+          name.className = 'rd-version-name';
+          name.appendChild(document.createTextNode(tag));
+          if (pre) {{
+            var mark = document.createElement('span');
+            mark.className = 'rd-pre';
+            mark.textContent = 'pre';
+            name.appendChild(mark);
+          }}
+          opt.appendChild(name);
+          if (age) {{
+            var when = document.createElement('span');
+            when.className = 'rd-version-age';
+            when.textContent = age;
+            opt.appendChild(when);
+          }}
           list.appendChild(opt);
+        }}
+        add('latest', 'recommended', false);
+        all.forEach(function (r) {{
+          if (r && r.tag && r.tag !== 'latest') add(r.tag, r.age || '', !!r.pre);
         }});
       }}
       if (val.textContent !== chosen) val.textContent = chosen;
-      var chip = document.querySelector('.rd-version');
-      if (chip && chosen === lastPicked) {{ chip.classList.remove('is-busy'); lastPicked = ''; }}
+      var box = document.querySelector('[data-tone="version"]');
+      if (box && chosen === lastPicked) {{ box.classList.remove('is-busy'); lastPicked = ''; }}
     }}
     var versionToggle = document.querySelector('[data-version-toggle]');
-    var versionMenu = document.querySelector('[data-version-menu]');
-    if (versionToggle && versionMenu) {{
+    var versionList = document.querySelector('[data-version-list]');
+    if (versionToggle && versionList) {{
       versionToggle.addEventListener('click', function () {{
-        var open = versionMenu.hidden;
-        versionMenu.hidden = !open;
+        var box = document.querySelector('[data-tone="version"]');
+        var open = !box.classList.contains('is-open');
+        box.classList.toggle('is-open', open);
         versionToggle.setAttribute('aria-expanded', String(open));
         versionMenuOpen = open;
       }});
-      versionMenu.addEventListener('click', function (event) {{
+      versionList.addEventListener('click', function (event) {{
         var opt = event.target.closest && event.target.closest('[data-release]');
         if (!opt) return;
         var value = opt.getAttribute('data-release');
-        if (!/^(latest|\\d{{4}}\\.\\d{{1,2}}\\.\\d{{1,2}})$/.test(value)) return;
+        if (!/^(latest|[0-9]{{4}}\\.[0-9]{{1,2}}\\.[0-9]{{1,2}}(?:-[A-Za-z0-9.-]+)?)$/.test(value)) return;
         closeVersionMenu();
-        var chip = document.querySelector('.rd-version');
-        if (chip) chip.classList.add('is-busy');
+        var box = document.querySelector('[data-tone="version"]');
+        if (box) box.classList.add('is-busy');
         lastPicked = value;
         set('[data-version-value]', value);
         set('[data-status-text]', 'Downloading ' + value + '…');

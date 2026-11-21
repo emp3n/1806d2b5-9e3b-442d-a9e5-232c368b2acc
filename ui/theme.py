@@ -204,7 +204,8 @@ __TOKEN_BLOCKS__
    so the card shrinks to Origin + the two tiles instead of showing four empty
    plates. Origin never hides — it comes from our own IP, not the process. */
 .rd-fact[hidden], .rd-fact-row[hidden],
-.rd-side[hidden], .rd-path[hidden] { display: none !important; }
+.rd-side[hidden], .rd-path[hidden],
+.rd-measures[hidden], .rd-tile[hidden] { display: none !important; }
 .rd-fact {
   min-width: 0; padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
@@ -242,55 +243,77 @@ __TOKEN_BLOCKS__
 .rd-comma { color: var(--muted); }
 .rd-fact[data-tone="mem"] { background: var(--chip-tint); }
 
-/* ---------- version picker (the stopped card's one real decision) ----------
-   A native select would inherit the host's list and its scrollbar. This one
-   is ours: a button, an animated panel, a genuinely scrollable list and
-   keyboard/click-away behaviour owned by the card's own script. */
-.rd-version { position: relative; display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; }
-.rd-version-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 2px 7px; border-radius: 7px; background: var(--raised);
-  font-family: "RD Russo"; font-size: 13px; color: var(--text);
-  transition: background-color var(--fast), color var(--fast), box-shadow var(--fast);
+/* ---------- version picker ----------
+   In flow and full card width: opening it grows the card instead of floating a
+   narrow menu with its own scrollbars. Only the list scrolls, and only
+   vertically — every row is box-sizing:border-box so no horizontal bar can
+   appear beside it. The 0fr -> 1fr grid transition animates the expansion. */
+.rd-version-box {
+  min-width: 0; width: 100%; border-radius: 12px;
+  background: var(--chip-tint); overflow: hidden;
 }
-.rd-version-btn:hover, .rd-version-btn:focus-visible { background: var(--sunken); }
+.rd-version-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; width: 100%; min-width: 0; padding: 8px 10px;
+  color: var(--text); transition: background-color var(--fast);
+}
+.rd-version-head:hover, .rd-version-head:focus-visible { background: var(--sunken); }
+.rd-version-head-left {
+  display: inline-flex; align-items: baseline; gap: 10px; min-width: 0;
+}
+.rd-version-head-left em { font-style: normal; color: var(--muted); }
+.rd-version-head-left b {
+  font-family: "RD Russo"; font-weight: 400; font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .rd-chevron {
-  width: 12px; height: 12px; fill: none; stroke: currentColor;
+  width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor;
   stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
-  transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+  transition: transform 240ms cubic-bezier(.2,.8,.2,1);
 }
-.rd-version-btn[aria-expanded="true"] .rd-chevron { transform: rotate(180deg); }
-.rd-version.is-busy .rd-version-btn { animation: rd-pulse 1s ease-in-out infinite; }
-.rd-version-menu {
-  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0;
-  padding: 5px; border: 1px solid var(--border); border-radius: 12px;
-  background: var(--card); box-shadow: var(--shadow);
-  transform-origin: top center;
-  animation: rd-menu-in 190ms cubic-bezier(.2,.8,.2,1) both;
+.rd-version-box.is-open .rd-chevron { transform: rotate(180deg); }
+.rd-version-box.is-busy .rd-version-head { animation: rd-pulse 1s ease-in-out infinite; }
+.rd-version-panel {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms cubic-bezier(.2,.8,.2,1);
 }
-.rd-version-menu[hidden] { display: none; }
-.rd-version-scroll {
-  display: block; max-height: 224px; overflow-y: auto; overscroll-behavior: contain;
+.rd-version-box.is-open .rd-version-panel { grid-template-rows: 1fr; }
+.rd-version-clip { min-height: 0; overflow: hidden; }
+.rd-version-list {
+  box-sizing: border-box; min-width: 0; max-height: 234px;
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
   scrollbar-width: thin; scrollbar-color: var(--muted) transparent;
+  padding: 2px 5px 6px;
+  animation: rd-menu-in 190ms ease-out both;
 }
-.rd-version-scroll::-webkit-scrollbar { width: 7px; }
-.rd-version-scroll::-webkit-scrollbar-track { background: transparent; }
-.rd-version-scroll::-webkit-scrollbar-thumb {
-  background: var(--muted); border-radius: 7px; border: 2px solid var(--card);
+.rd-version-list::-webkit-scrollbar { width: 6px; }
+.rd-version-list::-webkit-scrollbar-track { background: transparent; }
+.rd-version-list::-webkit-scrollbar-thumb {
+  background: var(--muted); border-radius: 6px; border: 1px solid var(--card);
 }
-.rd-version-scroll::-webkit-scrollbar-thumb:hover { background: var(--text); }
+.rd-version-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
 .rd-version-opt {
-  display: block; width: 100%; text-align: left; padding: 7px 10px;
-  border-radius: 8px; font-size: 13px; color: var(--text);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  box-sizing: border-box; width: 100%; min-width: 0; padding: 7px 9px;
+  border-radius: 8px; font-size: 13px; color: var(--text); text-align: left;
   font-variant-numeric: tabular-nums;
-  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+  transition: background-color 120ms, color 120ms, padding-left 120ms;
+}
+.rd-version-name {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rd-version-age { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.rd-pre {
+  padding: 1px 5px; border-radius: 5px; font-size: 10px; text-transform: uppercase;
+  background: var(--warn-tint); color: var(--warn);
 }
 .rd-version-opt:hover, .rd-version-opt:focus-visible {
-  background: var(--sunken); transform: translateX(2px);
+  background: var(--sunken); padding-left: 12px;
 }
 .rd-version-opt[aria-selected="true"] { background: var(--acc-tint); color: var(--acc); }
 @keyframes rd-menu-in {
-  from { opacity: 0; transform: translateY(-6px) scaleY(.94); }
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes rd-pulse {

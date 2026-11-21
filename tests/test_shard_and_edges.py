@@ -21,7 +21,7 @@ def test_shard_stays_when_the_connector_is_stopped(monkeypatch):
     state = idle_state()
     assert state["shard"] == "shard-3"
     page = render(state, theme="dark")
-    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures">')]
+    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures"')]
     chip = re.search(r'data-tone="shard"[^>]*', facts).group(0)
     assert "hidden" not in chip
     assert ">shard-3<" in facts

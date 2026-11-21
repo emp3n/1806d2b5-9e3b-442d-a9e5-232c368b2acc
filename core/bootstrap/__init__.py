@@ -8,9 +8,9 @@ from __future__ import annotations
 import sys
 from types import ModuleType
 
-from . import config, binary, probes, tunnel
+from . import config, binary, probes, tunnel, releases
 
-_MODULES = (config, binary, probes, tunnel,)
+_MODULES = (config, binary, probes, tunnel, releases,)
 _RAW_OWNER = {'BASE': 'tunnel',
  'CARD_STATE_PATH': 'tunnel',
  'CHECK_EVERY': 'tunnel',
@@ -27,15 +27,21 @@ _RAW_OWNER = {'BASE': 'tunnel',
  'URL_KEYS': 'tunnel',
  'VERSION': 'tunnel',
  'VERSION_FILE': 'config',
- 'VERSIONS_API': 'config',
- 'VERSIONS_TIMEOUT': 'config',
+ 'RELEASES_API': 'releases',
+ 'RELEASE_TIMEOUT': 'releases',
+ 'MAX_PAGES': 'releases',
+ 'STABLE_TAG': 'releases',
+ 'VALID_TAG': 'releases',
+ 'age_text': 'releases',
+ '_published_at': 'releases',
+ '_catalog': 'releases',
+ 'tags': 'releases',
+ 'catalogue': 'releases',
+ 'versions': 'releases',
  'TAG_RE': 'config',
- 'FALLBACK_VERSIONS': 'config',
  'version_path': 'config',
  'desired_version': 'config',
  'set_desired_version': 'config',
- '_versions_cached': 'config',
- 'versions': 'config',
  'resolved_version': 'config',
  '_cached': 'tunnel',
  '_child_procs': 'tunnel',

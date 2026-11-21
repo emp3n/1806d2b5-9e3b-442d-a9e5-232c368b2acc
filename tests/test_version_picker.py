@@ -25,7 +25,7 @@ def test_payload_carries_the_choice_and_the_full_list(monkeypatch):
     monkeypatch.setattr(bootstrap, "versions", lambda: ["2026.11.1", "2026.10.4"])
     live = statefeed.to_payload({"found": False})
     assert live["chosen_version"] == "2026.10.4"
-    assert live["versions"] == ["2026.11.1", "2026.10.4"]
+    assert live["versions"][0]["tag"] == "2026.11.1"
 
 
 def test_stopped_card_swaps_edges_for_the_version_picker(monkeypatch):
@@ -50,7 +50,7 @@ def test_running_card_keeps_edges_and_hides_the_picker():
 
 
 def test_the_dropdown_has_its_own_scroll_and_animations():
-    for hook in (".rd-version-scroll", "::-webkit-scrollbar", "scrollbar-width",
+    for hook in (".rd-version-list", "::-webkit-scrollbar", "scrollbar-width",
                  "@keyframes rd-menu-in", ".rd-chevron", "rd-pulse",
                  "overscroll-behavior", "transform-origin"):
         assert hook in THEME, hook

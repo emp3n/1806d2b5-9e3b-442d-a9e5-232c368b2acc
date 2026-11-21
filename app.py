@@ -208,7 +208,7 @@ for _verb in ("stop", "start", "restart"):
 # One hidden button per release. Streamlit reruns over the open socket when a
 # native button is pressed, so the bridge can carry a version choice without
 # navigating or reloading the page. The keys are validated release tags.
-for _version in ["latest"] + bootstrap.versions():
+for _version in ["latest"] + bootstrap.tags():
     with st.container(key=f"rd_version_{_version}"):
         st.button(_version, key=f"rd_button_version_{_version}",
                   on_click=_run_version, args=(_version,))
@@ -301,7 +301,7 @@ st.html(
     var verb = event.data && event.data.rd;
     if (verb === 'version') {{
       var pick = event.data.version;
-      if (!/^(latest|\\d{4}\\.\\d{1,2}\\.\\d{1,2})$/.test(pick)) return;
+      if (!/^(latest|\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:-[A-Za-z0-9.-]+)?)$/.test(pick)) return;
       /* Streamlit turns dots in widget keys into dashes in the st-key class */
       var key = pick.replace(/\\./g, '-');
       var choice = document.querySelector('.st-key-rd_version_' + key + ' button');

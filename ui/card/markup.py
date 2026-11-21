@@ -7,7 +7,7 @@ from typing import Any
 from .common import esc, icon
 
 
-def measure(state: dict[str, Any], metric: str) -> str:
+def measure(state: dict[str, Any], metric: str, *, hidden: bool = False) -> str:
     """CPU or RAM: the number, its share, and a line that scrubs on hover."""
     key = "cpu" if metric == "cpu" else "mem"
     label = "CPU" if metric == "cpu" else "RAM"
@@ -18,7 +18,8 @@ def measure(state: dict[str, Any], metric: str) -> str:
             '<button type="button" data-unit="MB" aria-pressed="true">MB</button>'
             '<button type="button" data-unit="GB" aria-pressed="false">GB</button></div>'
         )
-    return f"""<div class="rd-tile" data-tone="{key}" data-level="{state[f'{key}_level']}">
+    off = " hidden" if hidden else ""
+    return f"""<div class="rd-tile" data-tone="{key}" data-level="{state[f'{key}_level']}"{off}>
       <div class="rd-tile-head">
         <span class="rd-k">{label}</span>{units}
       </div>

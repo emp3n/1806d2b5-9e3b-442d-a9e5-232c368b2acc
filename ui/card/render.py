@@ -62,13 +62,21 @@ def render(
     # not a number painted on the card.
     show_version = not running
     version = str(state.get("chosen_version") or "latest")
-    versions = ["latest"] + [str(v) for v in (state.get("versions") or [])
-                             if str(v) != "latest"]
-    version_options = "".join(
-        f'<button type="button" role="option" class="rd-version-opt" '
-        f'data-release="{esc(v)}" aria-selected="{"true" if v == version else "false"}">'
-        f'{esc(v)}</button>'
-        for v in versions
+    # The catalogue is data from the sampler, never a hardcoded list in the UI.
+    # Each row is version on the left, relative commit/publish age on the right.
+    def option(tag: str, age: str = "", pre: bool = False) -> str:
+        badge = '<span class="rd-pre">pre</span>' if pre else ""
+        when = f'<span class="rd-version-age">{esc(age)}</span>' if age else ""
+        return (
+            f'<button type="button" role="option" class="rd-version-opt" '
+            f'data-release="{esc(tag)}" aria-selected="{"true" if tag == version else "false"}">'
+            f'<span class="rd-version-name">{esc(tag)}{badge}</span>{when}</button>'
+        )
+
+    version_options = option("latest", "recommended") + "".join(
+        option(str(item.get("tag") or ""), str(item.get("age") or ""),
+               bool(item.get("pre")))
+        for item in (state.get("versions") or []) if isinstance(item, dict)
     )
     hidden = " hidden"
 
@@ -129,23 +137,24 @@ def render(
             <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
           </span>
         </div>
-        <div class="rd-fact-row" data-fact-row="3"{"" if show_version else hidden}>
-          <span class="rd-fact rd-version" data-tone="version">
-            <em>version</em>
-            <button type="button" class="rd-version-btn" data-version-toggle
-                    aria-haspopup="listbox" aria-expanded="false" aria-label="Choose cloudflared version">
-              <span data-version-value>{esc(version)}</span>
-              <svg class="rd-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <span class="rd-version-menu" data-version-menu hidden>
-              <span class="rd-version-scroll" role="listbox" data-version-list
-                    aria-label="Cloudflare versions">{version_options}</span>
+        <div class="rd-version-box" data-fact-row="3" data-tone="version"{"" if show_version else hidden}>
+          <button type="button" class="rd-version-head" data-version-toggle
+                  aria-expanded="false" aria-label="Choose cloudflared version">
+            <span class="rd-version-head-left">
+              <em>version</em><b data-version-value>{esc(version)}</b>
             </span>
-          </span>
+            <svg class="rd-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="rd-version-panel" data-version-panel>
+            <div class="rd-version-clip">
+              <div class="rd-version-list" role="listbox" data-version-list
+                   aria-label="Cloudflare versions">{version_options}</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="rd-measures">
+      <div class="rd-measures"{"" if running else hidden}>
         {measure(state, "cpu")}
         <div class="rd-side"{"" if show_side else hidden}>
           <div class="rd-mini">
@@ -161,7 +170,7 @@ def render(
           {icon("copy")}<span class="rd-tip" aria-hidden="true">Copy path</span></button>
       </div>
 
-      {measure(state, "mem")}
+      {measure(state, "mem", hidden=not running)}
     </article>"""
 
     spark_geo = spark_geometry(state)

@@ -52,7 +52,7 @@ def test_no_footer_css_or_js_writes_remain():
 
 def test_stopped_card_hides_the_empty_bubbles_but_keeps_origin():
     page = _render(_idle())
-    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures">')]
+    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures"')]
     assert 'data-tone="origin"' in facts
     # the shard and the whole second facts row (edges + connections) are absent
     assert re.search(r'data-tone="shard"[^>]*\shidden', facts)
@@ -67,7 +67,7 @@ def test_running_card_shows_all_the_chips():
     state["shard"] = "shard-3"
     state["connections"] = 4
     page = _render(state)
-    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures">')]
+    facts = page[page.index('<div class="rd-facts">'):page.index('<div class="rd-measures"')]
     # row 3 (the picker) is hidden while running; rows 1-2 must be fully shown
     head = facts[:facts.index('data-fact-row="3"')]
     assert ' hidden' not in head
@@ -148,7 +148,7 @@ def test_the_browser_hides_the_empty_side_facts_and_path_row():
     assert "['.rd-side', hasSide]" in SCRIPT
     assert "['.rd-path', hasPath]" in SCRIPT
     assert "hasSide = live &&" in SCRIPT and "hasPath = live &&" in SCRIPT
-    assert ".rd-side[hidden], .rd-path[hidden] { display: none !important; }" in THEME
+    assert ".rd-measures[hidden], .rd-tile[hidden] { display: none !important; }" in THEME
 
 
 def test_geo_own_endpoint_falls_back_when_the_first_resolver_fails(monkeypatch):

@@ -21,6 +21,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.bootstrap.releases import VALID_TAG as TAG_RE
+
 # constants are repeated in every layer so default arguments evaluate at import
 _child_procs: list[subprocess.Popen] = []
 
@@ -33,11 +35,6 @@ VERSION = "2026.11.1"
 # that survives a Streamlit rerun, a page reload and a script reboot, and is
 # wiped with the container. "latest" means "the newest published tag".
 VERSION_FILE = "cloudflared.version"
-VERSIONS_API = "https://api.github.com/repos/cloudflare/cloudflared/tags?per_page=100"
-VERSIONS_TIMEOUT = 2.0
-TAG_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}$")
-FALLBACK_VERSIONS = (VERSION, "2026.11.0", "2026.10.7", "2026.10.4", "2026.10.3")
-
 BASE = "https://github.com/cloudflare/cloudflared/releases/download"
 
 TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
@@ -172,36 +169,11 @@ def set_desired_version(value: str, directory: Path | None = None) -> str:
     return name
 
 
-@functools.lru_cache(maxsize=1)
-def _versions_cached() -> tuple[str, ...]:
-    """Published tags, newest first. One call per process; no browser access."""
-    try:
-        request = urllib.request.Request(
-            VERSIONS_API,
-            headers={"User-Agent": "apllme-card",
-                     "Accept": "application/vnd.github+json"})
-        with urllib.request.urlopen(request, timeout=VERSIONS_TIMEOUT) as reply:
-            data = json.loads(reply.read(256_000))
-        tags = [str(item.get("name") or "") for item in data
-                if isinstance(item, dict)]
-        good = tuple(tag for tag in tags if TAG_RE.fullmatch(tag))
-        return good or FALLBACK_VERSIONS
-    except Exception:  # noqa: BLE001 - a blocked API still leaves a usable list
-        return FALLBACK_VERSIONS
-
-
-def versions() -> list[str]:
-    return list(_versions_cached())
-
-
-versions.cache_clear = _versions_cached.cache_clear
-
-
 def resolved_version() -> str:
     """Turn the remembered choice into a concrete release tag."""
     chosen = desired_version()
     if chosen == "latest":
-        available = versions()
+        available = tags()          # injected by the package, owned by releases.py
         return available[0] if available else VERSION
     return chosen
 

@@ -36,31 +36,35 @@ def test_versions_are_read_from_the_github_tags_api(monkeypatch):
         def __enter__(self): return self
         def __exit__(self, *a): return False
 
-    payload = json.dumps([{"name": "2026.11.1"}, {"name": "not-a-version"},
-                          {"name": "2026.10.4"}]).encode()
+    payload = json.dumps([
+        {"tag_name": "2026.11.1", "published_at": "2026-11-17T15:11:01Z",
+         "prerelease": False, "draft": False},
+        {"tag_name": "2026.10.4", "published_at": "2026-10-20T15:11:01Z",
+         "prerelease": False, "draft": False},
+    ]).encode()
     monkeypatch.setattr(bootstrap.urllib.request, "urlopen",
                         lambda req, timeout: Reply(payload))
-    bootstrap.versions.cache_clear()
-    assert bootstrap.versions() == ["2026.11.1", "2026.10.4"]
-    assert "tags" in bootstrap.VERSIONS_API
-    bootstrap.versions.cache_clear()
+    bootstrap.catalogue.cache_clear()
+    assert bootstrap.tags() == ["2026.11.1", "2026.10.4"]
+    assert "releases" in bootstrap.RELEASES_API
+    bootstrap.catalogue.cache_clear()
 
 
 def test_versions_fall_back_when_the_api_is_offline(monkeypatch):
     def down(req, timeout): raise OSError("offline")
     monkeypatch.setattr(bootstrap.urllib.request, "urlopen", down)
-    bootstrap.versions.cache_clear()
-    assert bootstrap.versions() and bootstrap.versions()[0].startswith("20")
-    bootstrap.versions.cache_clear()
+    bootstrap.catalogue.cache_clear()
+    assert bootstrap.tags() and bootstrap.tags()[0].startswith("20")
+    bootstrap.catalogue.cache_clear()
 
 
 def test_latest_resolves_to_the_newest_tag(monkeypatch, tmp_path):
-    monkeypatch.setattr(bootstrap, "versions", lambda: ["2026.12.0", "2026.11.1"])
+    monkeypatch.setattr(bootstrap, "tags", lambda: ["2026.12.0", "2026.11.1"])
     monkeypatch.setattr(bootstrap, "version_path", lambda d=None: tmp_path / "v")
     assert bootstrap.resolved_version() == "2026.12.0"
     bootstrap.set_desired_version("2026.10.4", tmp_path)
     assert bootstrap.resolved_version() == "2026.10.4"
-    monkeypatch.setattr(bootstrap, "versions", lambda: [])
+    monkeypatch.setattr(bootstrap, "tags", lambda: [])
     bootstrap.version_path(tmp_path).unlink()
     assert bootstrap.resolved_version() == bootstrap.VERSION
 

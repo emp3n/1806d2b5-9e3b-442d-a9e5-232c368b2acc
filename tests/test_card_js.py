@@ -211,7 +211,7 @@ def test_shard_is_its_own_chip_beside_origin_not_inside_it():
     state["shard"] = "shard-3"
     page = render(state, theme="dark")
     start = page.index('<div class="rd-facts">')
-    facts = page[start:page.index('<div class="rd-measures">')]
+    facts = page[start:page.index('<div class="rd-measures"')]
     origin_chip = facts[facts.index('data-tone="origin"'):facts.index('data-tone="shard"')]
 
     # origin keeps its flag + city, and no shard inside it
@@ -248,7 +248,7 @@ def test_connections_chip_sits_in_the_edges_row():
     state["connections"] = 5
     page = render(state, theme="dark")
     start = page.index('<div class="rd-facts">')
-    facts = page[start:page.index('<div class="rd-measures">')]
+    facts = page[start:page.index('<div class="rd-measures"')]
     assert facts.index('data-edge-list') < facts.index('data-tone="connections"')
     # the Edges label is gone so every code + mini flag fits on one line
     assert '<em>Edges</em>' not in facts

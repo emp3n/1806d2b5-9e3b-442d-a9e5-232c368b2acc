@@ -115,10 +115,14 @@ def no_external_version_api(monkeypatch):
 
     def local(request, timeout=None):
         url = getattr(request, "full_url", request if isinstance(request, str) else "")
-        if url == bootstrap.VERSIONS_API:
-            return Reply(json.dumps([{"name": "2026.11.1"},
-                                     {"name": "2026.10.4"}]).encode())
+        if str(url).startswith(bootstrap.RELEASES_API.split("{")[0]):
+            return Reply(json.dumps([
+                {"tag_name": "2026.11.1", "published_at": "2026-11-17T15:11:01Z",
+                 "prerelease": False, "draft": False},
+                {"tag_name": "2026.10.4", "published_at": "2026-10-20T15:11:01Z",
+                 "prerelease": False, "draft": False},
+            ]).encode())
         return real(request, timeout=timeout)
 
-    bootstrap.versions.cache_clear()
+    bootstrap.catalogue.cache_clear()
     monkeypatch.setattr(bootstrap.urllib.request, "urlopen", local)
