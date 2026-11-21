@@ -203,13 +203,22 @@ class Sampler:
         self._stop.set()
 
     def _loop(self) -> None:
+        # A fixed period, not "interval after the probe finished": the HTTP
+        # probes take 0.5-1.5 s, so waiting a full interval afterwards made
+        # the heartbeat (and the card's tick) drift between 0.5 and 1.5 s.
+        next_tick = time.monotonic()
         while not self._stop.is_set():
             try:
                 self.refresh()
             except Exception as exc:  # noqa: BLE001 - a sample must never kill the feed
                 self.last_error = f"{type(exc).__name__}: {exc}"
                 print(f"card: sampler error {self.last_error}", flush=True)
-            self._stop.wait(self.interval)
+            next_tick += self.interval
+            delay = next_tick - time.monotonic()
+            if delay > 0:
+                self._stop.wait(delay)
+            else:
+                next_tick = time.monotonic()  # a slow sample overran; re-anchor
 
     # -- one turn of the crank
     def refresh(self) -> dict[str, Any]:
@@ -240,6 +249,40 @@ class Sampler:
         with self._lock:
             return dict(self._payload)
 
+    def _publish_action(self, action: dict[str, Any]) -> None:
+        """Write the click result without re-probing the connector."""
+        with self._lock:
+            payload = dict(self._payload)
+        payload["last_action"] = action
+        payload["ts"] = round(time.time(), 3)
+        with self._lock:
+            self._payload = payload
+        write_state(payload, state_path(self.directory))
+
+    def _launch(self, kind: str) -> None:
+        """Run a start/restart on a daemon thread; publish its final outcome."""
+        def job() -> None:
+            try:
+                if kind == "restart":
+                    tunnel = bootstrap.restart_tunnel(self.port) if self.port else None
+                else:
+                    tunnel = (bootstrap.ensure_tunnel(self.port, force=True)
+                              if self.port else None)
+                outcome = {"ok": bool(tunnel and tunnel.ok), "action": kind,
+                           "pid": getattr(tunnel, "pid", None),
+                           "detail": getattr(tunnel, "detail", "no port")}
+            except Exception as exc:  # noqa: BLE001 - reported in the card
+                outcome = {"ok": False, "action": kind,
+                           "error": f"{type(exc).__name__}: {exc}"}
+            outcome["at"] = round(time.time())
+            self.last_action = outcome
+            try:
+                self.refresh()
+            except Exception as exc:  # noqa: BLE001 - never kill the feed
+                self.last_error = f"{type(exc).__name__}: {exc}"
+
+        threading.Thread(target=job, name=f"cf-{kind}", daemon=True).start()
+
     # -- the buttons
     def act(self, action: str) -> dict[str, Any]:
         """Perform one verb on the connector and report what actually happened."""
@@ -259,18 +302,19 @@ class Sampler:
                       "stopped": stopped["stopped"],
                       "error": "" if stopped["ok"] else
                       f"these pids survived SIGKILL: {stopped['survivors']}"}
-        elif action == "restart":
+        else:
+            # Registration waits on the connector for seconds. Doing it on the
+            # Streamlit rerun thread froze the whole page, so the click only
+            # queues the work; the result lands in this same file afterwards.
             bootstrap.set_desired("on", self.directory)
-            tunnel = bootstrap.restart_tunnel(self.port) if self.port else None
-            result = {"ok": bool(tunnel and tunnel.ok), "action": "restart",
-                      "pid": getattr(tunnel, "pid", None),
-                      "detail": getattr(tunnel, "detail", "no port")}
-        else:  # start / start_or_restart
-            bootstrap.set_desired("on", self.directory)
-            tunnel = bootstrap.ensure_tunnel(self.port, force=True) if self.port else None
-            result = {"ok": bool(tunnel and tunnel.ok), "action": "start",
-                      "pid": getattr(tunnel, "pid", None),
-                      "detail": getattr(tunnel, "detail", "no port")}
+            kind = "restart" if action == "restart" else "start"
+            result = {"ok": True, "action": kind, "pending": True,
+                      "detail": "starting"}
+            result["at"] = round(time.time())
+            self.last_action = result
+            self._launch(kind)
+            self._publish_action(result)  # no probes on the click path
+            return result
         result["at"] = round(time.time())
         self.last_action = result
         try:

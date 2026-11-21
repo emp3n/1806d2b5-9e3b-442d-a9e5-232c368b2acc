@@ -76,7 +76,7 @@ def test_picker_head_has_no_word_version_and_has_progress(monkeypatch):
     page = render(idle_state(), theme="dark")
     facts = page[page.index('<div class="rd-version-box"'):page.index('<div class="rd-measures"')]
     assert '<em>version</em>' not in facts
-    assert 'data-version-progress' in facts and 'data-version-note' in facts
+    assert 'data-version-progress' in facts and 'data-version-note' not in facts
 
 
 def test_styling_matches_the_chips_and_the_scroll_is_thin():
@@ -90,8 +90,9 @@ def test_styling_matches_the_chips_and_the_scroll_is_thin():
 def test_js_reacts_to_the_background_install():
     assert "data.install" in SCRIPT
     assert "data-version-progress" in SCRIPT
-    assert "data-version-note" in SCRIPT
-    assert "Downloading" in SCRIPT and "Ready" in SCRIPT
+    assert "data-version-note" not in SCRIPT
+    assert "is-downloading" in SCRIPT and "is-ready" in SCRIPT
+    assert "Ready" not in SCRIPT and "Downloading" not in SCRIPT
 
 
 def test_a_second_click_while_downloading_does_not_stack_jobs(monkeypatch):

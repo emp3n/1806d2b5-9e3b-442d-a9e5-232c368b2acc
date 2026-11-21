@@ -197,8 +197,12 @@ def test_act_refreshes_and_reports_the_real_result(tmp_path, monkeypatch):
     monkeypatch.setattr(statefeed.bootstrap, "ensure_tunnel", lambda *a, **k: None)
     monkeypatch.setattr(sam, "refresh", lambda: {"found": True})
     result = sam.act("start")
-    assert "at" in result and "ok" in result
-    assert sam.last_action is result
+    assert "at" in result and result["pending"] is True
+    import time
+    for _ in range(60):
+        if not sam.last_action.get("pending"): break
+        time.sleep(0.01)
+    assert sam.last_action["action"] == "start"
     assert sam.act("bogus")["error"]
 
 

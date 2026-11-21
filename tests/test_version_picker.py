@@ -51,7 +51,7 @@ def test_running_card_keeps_edges_and_hides_the_picker():
 
 def test_the_dropdown_has_its_own_scroll_and_animations():
     for hook in (".rd-version-list", "::-webkit-scrollbar", "scrollbar-width",
-                 "@keyframes rd-menu-in", ".rd-chevron", "rd-pulse",
+                 "@keyframes rd-menu-in", ".rd-chevron", "rd-progress-sweep",
                  "overscroll-behavior", "transform-origin"):
         assert hook in THEME, hook
 

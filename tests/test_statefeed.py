@@ -260,7 +260,12 @@ def test_restart_goes_through_the_start_verify_swap(sampler, monkeypatch):
                             True, pid=1234, mode="named",
                             public_url="https://streamlit.idealis.cc"))
     result = sampler.act("restart")
-    assert result["ok"] is True and result["pid"] == 1234
+    assert result["ok"] is True and result["pending"] is True
+    import time
+    for _ in range(60):
+        if sampler.last_action.get("pid"): break
+        time.sleep(0.01)
+    assert sampler.last_action["pid"] == 1234
 
 
 def test_start_uses_ensure_tunnel_with_force(sampler, monkeypatch):
@@ -274,8 +279,12 @@ def test_start_uses_ensure_tunnel_with_force(sampler, monkeypatch):
                         lambda port, directory=None: {"ok": False, "pid": None, "ready": 0})
     monkeypatch.setattr(bootstrap, "ensure_tunnel", ensure)
     result = sampler.act("start")
-    assert result["ok"] is True and result["pid"] == 77
-    assert seen["force"] is True
+    assert result["ok"] is True and result["pending"] is True
+    import time
+    for _ in range(60):
+        if sampler.last_action.get("pid"): break
+        time.sleep(0.01)
+    assert sampler.last_action["pid"] == 77 and seen["force"] is True
 
 
 def test_stop_is_remembered_so_a_rerun_cannot_undo_it(sampler, monkeypatch, tmp_path):

@@ -173,20 +173,17 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       if (val.textContent !== chosen) val.textContent = chosen;
       var box = document.querySelector('[data-tone="version"]');
       var progress = document.querySelector('[data-version-progress]');
-      var note = document.querySelector('[data-version-note]');
       var install = data && data.install;
-      if (box && progress && note && install) {{
-        var busy = install.state === 'downloading';
-        progress.hidden = !busy;
-        var label = '';
-        if (busy) label = 'Downloading ' + (install.version || chosen) + '…';
-        else if (install.state === 'ready') label = 'Ready · ' + (install.version || chosen) + ' — press Start';
-        else if (install.state === 'error') label = install.detail || 'Download failed';
-        note.textContent = label;
-        note.hidden = !label;
-        if (install.state === 'error') note.setAttribute('data-tone', 'error');
-        else note.removeAttribute('data-tone');
-        box.classList.toggle('is-error', install.state === 'error');
+      if (box && progress && install) {{
+        var state = install.state;
+        progress.hidden = state !== 'downloading';
+        box.classList.toggle('is-downloading', state === 'downloading');
+        box.classList.toggle('is-error', state === 'error');
+        /* the green confirmation is a moment, not a sentence that stays */
+        if (state === 'ready' && !box.classList.contains('is-ready')) {{
+          box.classList.add('is-ready');
+          window.setTimeout(function () {{ box.classList.remove('is-ready'); }}, 1600);
+        }}
       }}
     }}
     var versionToggle = document.querySelector('[data-version-toggle]');
@@ -206,9 +203,9 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
         if (!/^(latest|[0-9]{{4}}\\.[0-9]{{1,2}}\\.[0-9]{{1,2}}(?:-[A-Za-z0-9.-]+)?)$/.test(value)) return;
         closeVersionMenu();
         var bar = document.querySelector('[data-version-progress]');
-        var msg = document.querySelector('[data-version-note]');
+        var chip = document.querySelector('[data-tone="version"]');
         if (bar) bar.hidden = false;
-        if (msg) {{ msg.hidden = false; msg.textContent = 'Downloading ' + value + '…'; }}
+        if (chip) {{ chip.classList.remove('is-ready'); chip.classList.add('is-downloading'); }}
         lastPicked = value;
         set('[data-version-value]', value);
         /* no stop, no start: the connector keeps serving while we download */

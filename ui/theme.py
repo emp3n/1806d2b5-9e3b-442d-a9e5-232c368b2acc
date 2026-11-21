@@ -248,16 +248,34 @@ __TOKEN_BLOCKS__
    13px type. Opening the list grows the card in flow; only the list scrolls,
    with a 4px custom bar. No popover, no horizontal bar, no protruding pill. */
 .rd-version-box {
-  min-width: 0; width: 100%; border-radius: 8px;
-  background: var(--chip-tint); color: var(--text);
+  box-sizing: border-box; min-width: 0; width: 100%; border-radius: 8px;
+  border: 1px solid transparent; background: var(--chip-tint); color: var(--text);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
 }
-.rd-version-head {
+/* the whole chip glows: amber while the release is being fetched, green for a
+   moment once it is installed. No words are needed for either state. */
+.rd-version-box.is-downloading {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 35%, transparent),
+              0 0 14px color-mix(in srgb, var(--warn) 28%, transparent);
+}
+.rd-version-box.is-ready {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ok) 35%, transparent),
+              0 0 16px color-mix(in srgb, var(--ok) 30%, transparent);
+}
+.rd-version-box.is-error {
+  border-color: var(--crit);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--crit) 45%, transparent),
+              0 0 12px color-mix(in srgb, var(--crit) 30%, transparent);
+}
+.rd-stage .rd-version-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; width: 100%; min-width: 0; padding: 4px 10px; min-height: 28px;
+  gap: 10px; width: 100%; min-width: 0; padding: 10px 12px; min-height: 32px;
   color: var(--text); font-size: 13px;
   transition: color var(--fast);
 }
-.rd-version-head:hover, .rd-version-head:focus-visible { color: var(--acc); }
+.rd-stage .rd-version-head:hover, .rd-stage .rd-version-head:focus-visible { color: var(--acc); }
 .rd-version-head-left { display: inline-flex; align-items: center; min-width: 0; }
 .rd-version-head-left b {
   font-family: "RD Russo"; font-weight: 400; font-size: 13px;
@@ -270,17 +288,12 @@ __TOKEN_BLOCKS__
 }
 .rd-version-box.is-open .rd-chevron { transform: rotate(180deg); }
 .rd-version-progress {
-  display: block; height: 2px; margin: 0 10px 5px; border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--acc), transparent);
+  display: block; height: 2px; margin: 0 12px 8px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--warn), transparent);
   background-size: 200% 100%;
-  animation: rd-slide 1.15s linear infinite;
+  animation: rd-progress-sweep 850ms linear infinite;
 }
-.rd-version-progress[hidden], .rd-version-note[hidden] { display: none; }
-.rd-version-note {
-  display: block; padding: 0 10px 6px; font-size: 11px; color: var(--muted);
-}
-.rd-version-note[data-tone="error"] { color: var(--crit); }
-.rd-version-box.is-error .rd-version-head { animation: rd-pulse 1.4s ease-in-out infinite; }
+.rd-version-progress[hidden] { display: none; }
 .rd-version-panel {
   display: grid; grid-template-rows: 0fr;
   transition: grid-template-rows 260ms cubic-bezier(.2,.8,.2,1);
@@ -300,7 +313,7 @@ __TOKEN_BLOCKS__
   background: var(--muted); border-radius: 4px; opacity: .7;
 }
 .rd-version-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
-.rd-version-opt {
+.rd-stage .rd-version-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   box-sizing: border-box; width: 100%; min-width: 0; padding: 7px 9px;
   border-radius: 8px; font-size: 13px; color: var(--text); text-align: left;
@@ -319,8 +332,8 @@ __TOKEN_BLOCKS__
   padding: 1px 5px; border-radius: 5px; font-size: 10px; letter-spacing: .04em;
   text-transform: uppercase; background: var(--warn-tint); color: var(--warn);
 }
-.rd-version-opt:hover, .rd-version-opt:focus-visible { background: var(--sunken); }
-.rd-version-opt[aria-selected="true"] {
+.rd-stage .rd-version-opt:hover, .rd-stage .rd-version-opt:focus-visible { background: var(--sunken); }
+.rd-stage .rd-version-opt[aria-selected="true"] {
   background: var(--acc-tint); color: var(--acc);
   box-shadow: inset 0 0 0 1px var(--border);
 }
@@ -328,12 +341,7 @@ __TOKEN_BLOCKS__
   from { opacity: 0; transform: translateY(-3px) scale(.985); }
   to { opacity: 1; transform: none; }
 }
-@keyframes rd-slide { to { background-position: -200% 0; } }
-@keyframes rd-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 transparent; }
-  50% { box-shadow: 0 0 0 2px var(--warn-tint); }
-}
-
+@keyframes rd-progress-sweep { to { background-position: -200% 0; } }
 /* ---------- measures ---------- */
 .rd-measures { display: grid; grid-template-columns: minmax(0, 1fr) 124px; gap: 8px; }
 .rd-tile { position: relative; border-radius: 14px; padding: 10px 12px; background: var(--cpu-tint); }
