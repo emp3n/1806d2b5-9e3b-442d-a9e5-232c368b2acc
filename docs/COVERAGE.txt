@@ -1,24 +1,31 @@
-........................................................................ [ 30%]
-........................................................................ [ 61%]
-........................................................................ [ 91%]
-....................                                                     [100%]
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+............................................                             [100%]
 ================================ tests coverage ================================
 _______________ coverage: platform linux, python 3.11.2-final-0 ________________
 
-Name                Stmts   Miss  Cover
----------------------------------------
-core/__init__.py        2      0   100%
-core/bootstrap.py     602    109    82%
-core/demo_data.py      92      3    97%
-core/geo.py            52      2    96%
-core/live.py          523     70    87%
-core/resources.py     103     14    86%
-core/sessions.py       62      7    89%
-core/statefeed.py     138      7    95%
-ui/__init__.py          2      0   100%
-ui/card.py             51      0   100%
-ui/palette.py          35      0   100%
-ui/theme.py            19      0   100%
----------------------------------------
-TOTAL                1681    212    87%
-236 passed, 1 skipped in 3.68s
+Name                         Stmts   Miss  Cover
+------------------------------------------------
+core/__init__.py                 2      0   100%
+core/bootstrap/__init__.py      25      0   100%
+core/bootstrap/binary.py        83      1    99%
+core/bootstrap/config.py       131      4    97%
+core/bootstrap/probes.py       143     25    83%
+core/bootstrap/tunnel.py       342     33    90%
+core/demo_data.py               92      3    97%
+core/geo.py                     52      2    96%
+core/live/__init__.py           25      0   100%
+core/live/collector.py         171      6    96%
+core/live/proc.py              270     39    86%
+core/live/sources.py           141      5    96%
+core/resources.py              103     12    88%
+core/sessions.py                62      6    90%
+core/statefeed.py              138      7    95%
+ui/__init__.py                   2      0   100%
+ui/card.py                      51      0   100%
+ui/palette.py                   35      0   100%
+ui/theme.py                     19      0   100%
+------------------------------------------------
+TOTAL                         1887    143    92%
+260 passed, 1 skipped in 4.14s

@@ -16,9 +16,15 @@ redesign/
 │                           srcdoc с карточкой. Единственный автор HTML-обвязки.
 ├── core/                   ПАКЕТ ДАННЫХ. Ни одного UI-импорта; всё, что происходит
 │   ├── __init__.py         ниже, читается сэмплером и публикуется в один JSON.
-│   ├── bootstrap.py        Туннель и конфигурация: токен, pidfile, запуск/стоп,
-│   │                       пробы /ready и /metrics, публичный хост, ingress-port.
-│   ├── live.py             Сэмплер чисел: /proc, /ready, /metrics, лог, парсеры.
+│   ├── bootstrap/          ПАКЕТ: __init__ даёт плоский API, слои:
+│   │   ├── config.py       токен, host/port, desired state, pidfile-конфиг
+│   │   ├── binary.py       asset/download/version, локальный бинарник
+│   │   ├── probes.py       /ready, /metrics, public, /proc-пробы
+│   │   └── tunnel.py       Tunnel, start/stop/restart/adopt, ensure
+│   ├── live/               ПАКЕТ: __init__ даёт плоский API, слои:
+│   │   ├── proc.py         /proc: stat, rss, cpu, cmdline, pid-сканирование
+│   │   ├── sources.py      /ready, /metrics, log, trace — парсеры и _http
+│   │   └── collector.py    Collector.state() и idle_state()
 │   ├── statefeed.py        Единственный канал: Sampler, atomic write state.json,
 │   │                       INTERVAL=0.5, to_payload() -> плоский JSON.
 │   ├── geo.py              ipwho.is (кеш по IP) и disambiguate -> cluster/shard-3.

@@ -1,10 +1,10 @@
 # Карта тестов
 
-207 тестов, 1 пропуск (интеграция с реальным бинарником без токена). Все тесты
+260 тестов, 1 пропуск (интеграция с реальным бинарником без токена). Все тесты
 дешевле запуска целиком:
 
 ```sh
-python3 -m pytest tests -q                     # 207 passed, 1 skipped
+python3 -m pytest tests -q                     # 260 passed, 1 skipped
 CARD_INTEGRATION=1 python3 -m pytest tests -q  # + реальный cloudflared
 ```
 
@@ -22,6 +22,8 @@ CARD_INTEGRATION=1 python3 -m pytest tests -q  # + реальный cloudflared
 | `test_responsive.py` | 8 | три breakpoint'а, стекирование на телефоне, док, dvh, fit FLOOR,Reduced motion |
 | `test_resources.py` | 6 | cpu.max / cpu.weight / cpuset / memory.max, дробные ядра и `cores_text()` |
 | `test_palette.py` | 6 | три палитры, контраст всех текстовых пар в светлой и тёмной моде, статические токены |
+| `test_edge_cases.py` | 24 | битые JSON/HTTP-ответы, /proc-отказы, загрузка бинарника, stop/restart |
+| `test_helpers.py` | 21 | конфиг, cgroup, хелперы сэмплера, graceful degradation проб |
 | `test_geo.py` | 5 | кеш ISO-кодов, фильтр приватных IP, отказ сети, cluster из disambiguate |
 | `test_sessions.py` | 4 | сокеты cloudflared и server-side ingress, только ESTABLISHED, комбинированный счёт |
 

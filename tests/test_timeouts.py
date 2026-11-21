@@ -28,7 +28,7 @@ def test_public_probes_allow_for_the_cloudflare_roundtrip():
 
 
 def test_binary_download_and_version_have_hard_limits():
-    src = (ROOT / "core" / "bootstrap.py").read_text()
+    src = (ROOT / "core" / "bootstrap" / "binary.py").read_text()
     assert "timeout=25" in src
     assert "timeout=15" in src
     assert "st_size < 1_000_000" in src  # a truncated download is never accepted
