@@ -101,9 +101,9 @@ def test_a_dead_feed_is_named_instead_of_frozen():
     assert "function lose()" in SCRIPT
     assert "'state unreachable'" in SCRIPT
     assert "card.setAttribute('data-feed', 'lost')" in SCRIPT
-    # the footer names the path that failed: it is a file this page's own
-    # server publishes, so a failure means the app under it is gone
-    assert "set('[data-source]', 'no state · '" in SCRIPT
+    # with no footer, the status line itself is the one honest place that
+    # names the failure — the card never pretends the old numbers are live
+    assert "set('[data-status-text]', 'state unreachable')" in SCRIPT
     # and the old silent catch is gone
     assert "catch(function () {{ card.setAttribute('data-link', 'lost'); }})" not in SCRIPT
 
@@ -127,8 +127,8 @@ def test_a_phone_resumes_the_loop_when_it_comes_back():
 
 def test_the_stale_numbers_step_back():
     css = THEME.read_text()
-    assert '.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot),' in css
-    assert '.rd-card[data-feed="stalled"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }' in css
+    assert '.rd-card[data-feed="lost"] > :not(.rd-head),' in css
+    assert '.rd-card[data-feed="stalled"] > :not(.rd-head) { opacity: .45; }' in css
 
 
 def test_the_heartbeat_separates_stalled_from_live():

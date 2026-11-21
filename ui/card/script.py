@@ -86,13 +86,39 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
     function paintConnections(data) {{
       set('[data-connections]', String((data && data.connections) || 0));
     }}
+    /* A bubble with no value is not a smaller truth, it is noise. While the
+       connector is down there is no shard, no edge list and no count, so the
+       chips leave the layout and the card shrinks. Origin stays: it comes from
+       our own IP, not from the process. The server makes the same decision on
+       the first frame; this keeps it true on every poll, so Start/Stop needs
+       no reload to change the shape of the card. */
+    function paintPresence(data) {{
+      var live = !!(data && data.found);
+      var edges = (data && data.edges_geo) || [];
+      var names = (data && data.edges) || '';
+      var hasEdges = live && (edges.length > 0 || (names && names !== '—'));
+      var hasShard = live && !!((data && data.shard) || '');
+      var hasSide = live && !!((data.uptime && data.uptime !== '—')
+                               || (data.version && data.version !== '—'));
+      var hasPath = live && !!(data.path && data.path !== '—');
+      [['[data-tone="shard"]', hasShard],
+       ['[data-tone="edges"]', hasEdges],
+       ['[data-tone="connections"]', live],
+       ['[data-fact-row="2"]', live],
+       ['.rd-side', hasSide],
+       ['.rd-path', hasPath]].forEach(function (pair) {{
+        var node = document.querySelector(pair[0]);
+        if (node) node.hidden = !pair[1];
+      }});
+    }}
     /* no process: dashes, not the last flattering numbers, and a line that
-       decays to flat instead of freezing mid-air */
-    function blank() {{
-      paintGeo({{}});
+       decays to flat instead of freezing mid-air. Origin is the exception —
+       it keeps the public address resolved by the sampler. */
+    function blank(data) {{
+      paintGeo(data || {{}});
       paintConnections({{}});
-      set('[data-source]', 'live · no cloudflared process');
-      set('[data-fact="origin"]', '—');
+      paintPresence(data);
+      set('[data-fact="origin"]', (data && data.origin) || '—');
       var edgeList = document.querySelector('[data-edge-list]');
       if (edgeList) edgeList.textContent = '—';
       set('[data-uptime]', '—');
@@ -493,6 +519,9 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       /* an answer is an answer: whatever it says about the process, the feed
          itself is back, so the stale look comes off here and nowhere else */
       card.setAttribute('data-feed', 'ok');
+      /* the heartbeat still has to be observed — the stale look is driven by
+         an unchanged stamp, not by a line of text that used to live in a footer */
+      beat(data);
       /* The verb's result travels in the SAME file as the numbers: no page
          reload, no Streamlit toast in the top corner. Show it once in the
          card's own bottom notification, in the card's own design. */
@@ -517,8 +546,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
           set('[data-status-text]', stopped ? 'stopped by you' : 'no cloudflared process');
           var gone = document.querySelector('[data-note]');
           if (gone) {{ gone.hidden = true; gone.textContent = ''; }}
-          blank();
-          set('[data-source]', 'live · no cloudflared process' + beat(data));
+          blank(data);
         retitle(false);
         }}
         return;
@@ -536,10 +564,10 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       set('[data-fact="origin"]', data.origin);
       paintGeo(data);
       paintConnections(data);
+      paintPresence(data);
       set('[data-uptime]', data.uptime);
       set('[data-version]', data.version);
       set('[data-path]', data.path);
-      set('[data-source]', data.source_label + beat(data));
       retitle(true);
       var copyBtn = document.querySelector('[data-copy]');
       if (copyBtn && data.path) copyBtn.setAttribute('data-copy', data.path);
@@ -578,10 +606,8 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       card.setAttribute('data-feed', 'lost');
       card.setAttribute('data-status', 'down');
       set('[data-status-text]', 'state unreachable');
-      /* the footer is the provenance line: name the path that failed. It is a
-         file this page's own server publishes, so a failure means the app (or
-         the tunnel under it) is gone, not that some other host refused. */
-      set('[data-source]', 'no state · ' + RD_API);
+      /* There is no footer to hold a breadcrumb: the status line above is the
+         single honest place to say the state file could not be read. */
     }}
     function schedule(delay) {{
       if (beatTimer) window.clearTimeout(beatTimer);

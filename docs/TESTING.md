@@ -1,10 +1,10 @@
 # Карта тестов
 
-327 тестов, 1 пропуск (интеграция с реальным бинарником без токена). Все тесты
+340 тестов, 1 пропуск (интеграция с реальным бинарником без токена). Все тесты
 дешевле запуска целиком:
 
 ```sh
-python3 -m pytest tests -q                     # 327 passed, 1 skipped
+python3 -m pytest tests -q                     # 340 passed, 1 skipped
 CARD_INTEGRATION=1 python3 -m pytest tests -q  # + реальный cloudflared
 ```
 
@@ -28,6 +28,7 @@ CARD_INTEGRATION=1 python3 -m pytest tests -q  # + реальный cloudflared
 | `test_proc_defensive.py` | 16 | битые /proc-файлы, запись launch, cgroup |
 | `test_full_coverage.py` | 21 | последние защитные ветки: secrets, geo, cgroup, statefeed |
 | `test_tunnel_branches.py` | 20 | start/stop/restart, swap, SIGKILL/pidfile error paths |
+| `test_compact_card.py` | 13 | компактная карточка: нет подвала, чипы только с данными, own-IP резолвер |
 | `test_geo.py` | 5 | кеш ISO-кодов, фильтр приватных IP, отказ сети, cluster из disambiguate |
 | `test_sessions.py` | 4 | сокеты cloudflared и server-side ingress, только ESTABLISHED, комбинированный счёт |
 

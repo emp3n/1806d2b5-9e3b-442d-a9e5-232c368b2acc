@@ -50,6 +50,30 @@ def isolated_state(tmp_path_factory, monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def no_external_ip_lookup(monkeypatch):
+    """Own-IP resolution is real code, but tests answer it locally.
+
+    The resolver is called by the sampler (for the Origin chip while the
+    connector is down), so leaving it live would make the feed tests depend on
+    a third-party server. Everything else still uses the real fetch.
+    """
+    import geo
+
+    real = geo._fetch
+
+    own_urls = (geo.API_OWN,) + geo.OWN_FALLBACKS
+
+    def local(url):
+        if url in own_urls:
+            return {"ip": "8.8.8.8", "country_code": "US", "country": "United States",
+                    "region": "California", "city": "Mountain View"}
+        return real(url)
+
+    geo.OWN_CACHE.clear()
+    monkeypatch.setattr(geo, "_fetch", local)
+
+
 @pytest.fixture()
 def fake_proc(tmp_path, monkeypatch):
     """A miniature /proc with one connector inside it."""

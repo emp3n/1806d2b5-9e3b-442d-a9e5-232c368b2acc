@@ -308,6 +308,8 @@ def idle_state() -> dict[str, Any]:
     """
     from demo_data import MEM_BUDGET_MB as MEM, build_state, host, level, spark
 
+    # Origin survives a stopped connector: resolve our own endpoint once.
+    own_ip, own_geo = geo.own_endpoint()
     state = build_state(0)
     zeros = [0.0] * SAMPLES
     cpu_levels = [level(0.0, "cpu")] * SAMPLES
@@ -323,7 +325,8 @@ def idle_state() -> dict[str, Any]:
         "note": "",
         "edges": [],
         "edge_names": "—",
-        "edge_ip": "—",
+        "edge_ip": own_ip or "—",
+        "origin_geo": own_geo,
         "connector": "—",
         "cpu": 0.0,
         "cpu_text": "—",

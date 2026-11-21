@@ -21,8 +21,17 @@ from pathlib import Path
 from typing import Any
 
 API = "https://ipwho.is/{ip}?fields=success,country,country_code,region,region_code,city"
+# Our own egress IP and region. The connector's trace has no edge IP while the
+# tunnel is stopped, but the Origin chip must stay honest: the machine is still
+# here. One cached call, on the server, so the browser never sees a third party.
+API_OWN = "https://ipwho.is/?fields=ip,success,country,country_code,region,region_code,city"
+# api.ip.sb answers 403 from the Streamlit container, so the own-IP lookup uses
+# the same provider as the geo lookups and falls back to a second one. All of
+# them are server-side and cached for the life of the process.
+OWN_FALLBACKS = ("https://ipapi.co/json/", "https://ipinfo.io/json")
 TIMEOUT = 1.5
 CACHE: dict[str, dict[str, str]] = {}
+OWN_CACHE: dict[str, tuple[str, dict[str, str]]] = {}
 RESOLV = Path("/etc/resolv.conf")
 
 
@@ -59,6 +68,44 @@ def lookup(ip: str) -> dict[str, str]:
     except Exception:  # noqa: BLE001 - a geo miss must never break the feed
         result = {}
     CACHE[ip] = result
+    return result
+
+
+def own_endpoint() -> tuple[str, dict[str, str]]:
+    """Our public IP and its region, resolved once and cached.
+
+    The Origin chip shows the connector's edge IP while cloudflared runs and
+    this value while it is stopped; either way it is a real address with a real
+    place, never a decorative dash. The lookup is server-side only — a poll
+    must never call a third party. Several resolvers are tried because some
+    block cloud datacentre IPs (api.ip.sb answers 403 from Streamlit Cloud).
+    """
+    if "value" in OWN_CACHE:
+        return OWN_CACHE["value"]
+    result: tuple[str, dict[str, str]] = ("", {})
+    for url in (API_OWN,) + OWN_FALLBACKS:
+        try:
+            data = _fetch(url)
+        except Exception:  # noqa: BLE001 - try the next resolver
+            continue
+        candidate = str(data.get("ip") or "")
+        try:
+            if not ipaddress.ip_address(candidate).is_global:
+                continue
+        except ValueError:  # a resolver may answer with a hostname or junk
+            continue
+        cc = str(data.get("country_code") or "").upper()
+        info: dict[str, str] = {}
+        if re.fullmatch(r"[A-Z]{2}", cc):
+            info = {
+                "cc": cc,
+                "country": str(data.get("country_name") or data.get("country") or ""),
+                "region": str(data.get("region") or ""),
+                "city": str(data.get("city") or ""),
+            }
+        result = (candidate, info)
+        break
+    OWN_CACHE["value"] = result
     return result
 
 

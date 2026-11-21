@@ -93,10 +93,12 @@ def test_no_connector_is_a_state_not_a_guess():
     payload = statefeed.to_payload({"found": False}, None,
                                    {"ok": False, "mode": "none", "ready": 0,
                                     "public": None})
-    assert payload == {"found": False, "tunnel": {"ok": False, "mode": "none",
-                                                  "pid": None, "ready": 0,
-                                                  "public": None,
-                                                  "intent": "on"}}
+    assert payload == {
+        "found": False, "origin": "8.8.8.8",
+        "origin_geo": {"cc": "US", "country": "United States",
+                       "region": "California", "city": "Mountain View"},
+        "tunnel": {"ok": False, "mode": "none", "pid": None, "ready": 0,
+                   "public": None, "intent": "on"}}
 
 
 def test_the_last_action_rides_with_the_payload():

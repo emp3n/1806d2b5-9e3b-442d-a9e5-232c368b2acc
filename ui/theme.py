@@ -135,14 +135,14 @@ __TOKEN_BLOCKS__
   width: 100%; max-width: 392px; padding: 16px; border-radius: 20px;
   background: var(--card); box-shadow: var(--shadow);
 }
-.rd-card > :not(.rd-head):not(.rd-foot) { transition: opacity var(--fast); }
-.rd-card[data-run="stop"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }
+.rd-card > :not(.rd-head) { transition: opacity var(--fast); }
+.rd-card[data-run="stop"] > :not(.rd-head) { opacity: .45; }
 /* the feed stopped answering: the numbers are still true, they are just not
    now, so they step back instead of passing for live ones. "stalled" is the
    same promise for a state file that stopped being written while the page is
    still open. */
-.rd-card[data-feed="lost"] > :not(.rd-head):not(.rd-foot),
-.rd-card[data-feed="stalled"] > :not(.rd-head):not(.rd-foot) { opacity: .45; }
+.rd-card[data-feed="lost"] > :not(.rd-head),
+.rd-card[data-feed="stalled"] > :not(.rd-head) { opacity: .45; }
 
 .rd-head { display: flex; align-items: center; gap: 10px; }
 .rd-mark { width: 40px; height: 40px; flex: none; }
@@ -199,6 +199,12 @@ __TOKEN_BLOCKS__
    the city wrapped. Each row now sizes its own right chip to its content. */
 .rd-facts { display: flex; flex-direction: column; gap: 6px; }
 .rd-fact-row { display: flex; align-items: flex-start; gap: 6px; }
+/* An empty bubble is not a smaller truth: it is noise. When the connector is
+   down the shard/edges/connections chips are removed from the layout entirely,
+   so the card shrinks to Origin + the two tiles instead of showing four empty
+   plates. Origin never hides — it comes from our own IP, not the process. */
+.rd-fact[hidden], .rd-fact-row[hidden],
+.rd-side[hidden], .rd-path[hidden] { display: none !important; }
 .rd-fact {
   min-width: 0; padding: 4px 10px; border-radius: 8px; font-size: 13px;
   background: var(--chip-tint); color: var(--text);
@@ -293,10 +299,6 @@ __TOKEN_BLOCKS__
 .rd-copy:hover { color: var(--text); }
 .rd-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-.rd-foot {
-  font-size: 13px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 
 /* ---------- sections that are not built ---------- */
 .rd-plate { width: 100%; max-width: 520px; padding: 24px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); }

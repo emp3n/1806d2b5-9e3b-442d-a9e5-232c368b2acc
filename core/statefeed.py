@@ -107,7 +107,12 @@ def to_payload(state: dict[str, Any], last_action: dict[str, Any] | None = None,
     """The compact message the page needs, no markup, no spark geometry."""
     tunnel = tunnel or {}
     if not state.get("found"):
-        payload: dict[str, Any] = {"found": False}
+        # The connector has no edge IP while it is stopped, but Origin does not
+        # disappear with it: our own public endpoint is still resolvable. The
+        # chip keeps a real address and region, the empty bubbles stay hidden.
+        origin, origin_geo = geo.own_endpoint()
+        payload: dict[str, Any] = {"found": False, "origin": origin,
+                                   "origin_geo": origin_geo}
         if last_action:
             payload["last_action"] = last_action
         if tunnel:

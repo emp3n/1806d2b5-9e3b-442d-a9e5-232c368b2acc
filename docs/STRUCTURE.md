@@ -27,7 +27,8 @@ redesign/
 │   │   └── collector.py    Collector.state() и idle_state()
 │   ├── statefeed.py        Единственный канал: Sampler, atomic write state.json,
 │   │                       INTERVAL=0.5, to_payload() -> плоский JSON.
-│   ├── geo.py              ipwho.is (кеш по IP) и disambiguate -> cluster/shard-3.
+│   ├── geo.py              ipwho.is (кеш по IP), own-IP цепочка (ipwho.is →
+│   │                       ipapi.co → ipinfo.io) и disambiguate -> shard-3.
 │   ├── sessions.py         connections(): сокеты реплики + server-side ingress.
 │   ├── resources.py        Лимиты контейнера из cgroup: cpu.weight, memory.max.
 │   └── demo_data.py        Воспроизводимые демо-данные (?source=sample).
@@ -72,6 +73,7 @@ redesign/
         └── socket-иноды ──> sessions.connections() ─┘        │
                                                                v
    ipwho.is (geo, 1 раз на IP) ──> geo.lookup() ─────> statefeed.to_payload()
+   own-IP (ipwho.is → ipapi.co → ipinfo.io, 1 раз) -> geo.own_endpoint() ──┘
    disambiguate (cluster) ───────> geo.shard() ──────>        │
    cgroup (ядра/RAM) ────────────> resources ─────────>        │
                                                                v
@@ -93,6 +95,7 @@ redesign/
 | `http://127.0.0.1:20241/ready` | `live.Collector` | `readyConnections`, `connectorId`, `status` (503 — норма) |
 | `http://127.0.0.1:20241/metrics` | `live.Collector` | `cloudflared_*` метрики |
 | `https://ipwho.is/<ip>` | `geo.lookup()` | ISO-2, страна, регион, город |
+| `https://ipwho.is/` + 2 фолбэка | `geo.own_endpoint()` | наш IP и регион для Origin при остановке |
 | `https://<subdomain>.streamlit.app/api/v2/app/disambiguate` | `geo.shard()` | `cluster: "shard-3"` |
 | `https://<host>/app/static/flags/<cc>.svg` | браузер(card) | локальный SVG 4:3 |
 | `/api/v2/app/status` (диагностика) | оператор | версия, статус приложения |
@@ -123,3 +126,15 @@ redesign/
 4. **Новый источник данных** — отдельный модуль с Docstring-контрактом и кешем,
    как `geo.py`; сэмплер дёргает его в фоновом потоке, не браузер.
 5. **Рuntime state** — `static/state.json` и `.temp/` не коммитить.
+
+## Компактность
+
+Под RAM больше ничего нет: подвал с «live · cores · GB» удалён — ядра и память
+уже подписаны на самих плитках, а статус живёт в шапке.
+
+Пока cloudflared не запущен, чипы `shard`, `edges`, `connections`, плашки
+`uptime`/`version` и строка пути **не рендерятся** (правило применяется и на
+сервере, и в JS при каждом опросе). Origin остаётся всегда: он резолвится из
+нашего публичного IP серверной цепочкой, а не из процесса. Карточка в простое
+становится на ~76 px короче (461 → 385 px на 1440px) вместо набора пустых
+плашек.

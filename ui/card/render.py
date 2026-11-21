@@ -33,10 +33,31 @@ def render(
     cores and RAM), which used to shadow it — the warning then read "[object
     Object]" instead of the hostname.
     """
-    host = state["host"]
     live_text = f'{state["live"]} of 4 connections live'
     note = str(state.get("note") or "")
     status_state = "up" if state["connected"] else "down"
+
+    # A stopped connector has no shard, no edges and no connections to show.
+    # Those bubbles are gated on real data; Origin stays because it is resolved
+    # from our own IP, independently of the process. The same decision is made
+    # by paintPresence() on every poll, so start/stop needs no page reload.
+    # Sample data has no `found` key at all — it is a demo of a running service;
+    # only an explicit False means "stopped".
+    running = bool(state.get("found", True))
+    shard = str(state.get("shard") or "")
+    edges_geo = state.get("edges_geo") or []
+    edge_names = str(state.get("edge_names") or "")
+    show_shard = running and bool(shard)
+    show_edges = running and bool(edges_geo or edge_names not in ("", "—"))
+    show_connections = running
+    show_row2 = show_edges or show_connections
+    # The mini facts and the binary path are empty plates while the process is
+    # down ("—" and a Copy button with nothing to copy). They follow the same
+    # rule: no value, no chip.
+    show_side = running and (state.get("uptime") not in ("", "—")
+                             or state.get("version") not in ("", "—"))
+    show_path = running and state.get("path") not in ("", "—")
+    hidden = " hidden"
 
     rails = "".join(
         f'<button type="button" class="rd-tab" data-view="{key}" '
@@ -85,13 +106,13 @@ def render(
             <span class="rd-flag-slot" data-origin-flag>{flag_img(state.get("origin_geo", {}).get("cc", ""), "rd-flag", "origin")}</span>
             <span class="rd-geo" data-origin-geo>{esc(geo_city(state.get("origin_geo", {})))}</span>
           </span>
-          <span class="rd-fact" data-tone="shard"><span data-shard>{esc(state.get("shard", ""))}</span></span>
+          <span class="rd-fact" data-tone="shard"{"" if show_shard else hidden}><span data-shard>{esc(shard)}</span></span>
         </div>
-        <div class="rd-fact-row">
-          <span class="rd-fact">
-            <span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
+        <div class="rd-fact-row" data-fact-row="2"{"" if show_row2 else hidden}>
+          <span class="rd-fact" data-tone="edges"{"" if show_edges else hidden}>
+            <span class="rd-edge-list" data-edge-list>{edge_items(edges_geo, edge_names)}</span>
           </span>
-          <span class="rd-fact" data-tone="connections">
+          <span class="rd-fact" data-tone="connections"{"" if show_connections else hidden}>
             <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
           </span>
         </div>
@@ -99,7 +120,7 @@ def render(
 
       <div class="rd-measures">
         {measure(state, "cpu")}
-        <div class="rd-side">
+        <div class="rd-side"{"" if show_side else hidden}>
           <div class="rd-mini">
             <span class="rd-k">uptime</span><b data-uptime>{esc(state["uptime"])}</b></div>
           <div class="rd-mini" data-tone="acc">
@@ -107,15 +128,13 @@ def render(
         </div>
       </div>
 
-      <div class="rd-path">
+      <div class="rd-path"{"" if show_path else hidden}>
         <code data-path>{esc(state["path"])}</code>
         <button type="button" class="rd-copy" data-copy="{esc(state["path"])}" aria-label="Copy binary path">
           {icon("copy")}<span class="rd-tip" aria-hidden="true">Copy path</span></button>
       </div>
 
       {measure(state, "mem")}
-
-      <footer class="rd-foot"><span data-source>{state.get("source_label", "sample data")}</span> · host {host["text"]}</footer>
     </article>"""
 
     spark_geo = spark_geometry(state)
