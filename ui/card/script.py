@@ -121,7 +121,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
       }});
     }}
     /* ---- version picker: a full-width panel that grows the card ---- */
-    var readyTimer = null;
+    var readyTimer = null, celebrated = "";
     function clearReady() {{
       var box = document.querySelector('[data-tone="version"]');
       if (box) box.classList.remove('is-ready');
@@ -191,8 +191,9 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
         if (busy) {{
           var total = Number(install.total) || 0, read = Number(install.read) || 0;
           bar.style.width = (total > 0 ? Math.min(100, Math.round(100 * read / total)) : 0) + '%';
-        }} else if (state === 'ready' && !box.classList.contains('is-ready')) {{
-          /* one calm green confirmation; no pulse, no words */
+        }} else if (state === 'ready' && install.version !== celebrated) {{
+          /* one calm green confirmation per install; no pulse, no words */
+          celebrated = install.version;
           box.classList.add('is-ready');
           clearTimeout(readyTimer);
           readyTimer = window.setTimeout(clearReady, 3000);
@@ -219,7 +220,7 @@ def script(*, spark_geo: str, live_text: str, state_url: str | None,
         var bar = document.querySelector('[data-version-progress]');
         var chip = document.querySelector('[data-tone="version"]');
         if (bar) {{ bar.hidden = false; bar.firstElementChild.style.width = '0%'; }}
-        if (chip) chip.classList.remove('is-ready');
+        if (chip) {{ chip.classList.remove('is-ready'); celebrated = ''; }}
         lastPicked = value;
         set('[data-version-value]', value);
         /* no stop, no start: the connector keeps serving while we download */

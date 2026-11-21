@@ -129,3 +129,8 @@ def test_existing_binary_prefers_the_exact_release_and_falls_back(tmp_path):
 
 def test_capability_probe_survives_a_missing_binary(tmp_path):
     assert bootstrap.supports_token_tunnels(tmp_path / "gone") is False
+
+
+def test_the_ready_glow_fires_once_per_install():
+    assert "celebrated" in SCRIPT
+    assert "install.version !== celebrated" in SCRIPT
