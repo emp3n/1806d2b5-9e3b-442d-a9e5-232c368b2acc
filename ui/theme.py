@@ -283,8 +283,9 @@ __TOKEN_BLOCKS__
 }
 .rd-version-box.is-open .rd-chevron { transform: rotate(180deg); }
 .rd-version-progress {
-  display: block; height: 2px; margin: 0 12px 8px; border-radius: 2px;
-  background: var(--warn);
+  display: block; height: 3px; margin: 0 12px 8px; border-radius: 3px;
+  /* the track stays quiet so the moving filled fraction is readable */
+  background: var(--sunken);
 }
 .rd-version-progress > i {
   display: block; height: 100%; width: 0;

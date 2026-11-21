@@ -134,3 +134,11 @@ def test_capability_probe_survives_a_missing_binary(tmp_path):
 def test_the_ready_glow_fires_once_per_install():
     assert "celebrated" in SCRIPT
     assert "install.version !== celebrated" in SCRIPT
+
+
+def test_progress_track_is_muted_and_the_fill_is_not():
+    track = THEME[THEME.index('.rd-version-progress {'):THEME.index('.rd-version-progress > i')]
+    fill = THEME[THEME.index('.rd-version-progress > i'):THEME.index('.rd-version-progress[hidden]')]
+    assert 'background: var(--sunken)' in track
+    assert 'background: var(--warn)' in fill
+    assert 'background: var(--warn)' not in track
