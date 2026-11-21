@@ -9,12 +9,13 @@ python3 -m pytest tests -q --cov=core --cov=ui --cov-report=term
 Сырой вывод сохранён в `docs/COVERAGE.txt`.
 
 ```
-TOTAL  1887 statements  143 missed  92%      260 passed, 1 skipped
+TOTAL  1905 statements  71 missed  96%      286 passed, 1 skipped
 ```
 
 | Модуль | Покрытие | Комментарий |
 |---|---|---|
-| `ui/*`, `core/*/__init__.py` | **100%** | генерация разметки, CSS, токенов и API-слоя |
+| `ui/card/{common,markup,render,script}.py`, `ui/theme.py`, `ui/palette.py` | **100%** | разметка, JS, CSS и токены |
+| `core/live/proc.py`, `core/bootstrap/probes.py` | **97–99%** | /proc и сетевые пробы |
 | `core/bootstrap/binary.py` | **99%** | загрузка бинарника, проверка размера |
 | `core/live/collector.py` | **96%** | Collector и idle state |
 | `core/statefeed.py` | **95%** | канал данных: payload, запись, Sampler, verbs |
@@ -34,7 +35,7 @@ TOTAL  1887 statements  143 missed  92%      260 passed, 1 skipped
 - всеVerb'ы (stop/start/restart) и их отказы;
 - все тайм-ауты и их graceful degradation.
 
-Оставшиеся 143 строки — в основном — ветки обработки ошибок ОС
+Оставшиеся 71 строка — в основном — ветки обработки ошибок ОС
 (SIGKILL не сработал, `/proc` пропал между чтениями, бинарник не скачался).
 Они требуют искусственной эмуляции ядра и не меняют контракт карточки; реальные
 ветки проверены в `test_live_binary.py` при `CARD_INTEGRATION=1`.

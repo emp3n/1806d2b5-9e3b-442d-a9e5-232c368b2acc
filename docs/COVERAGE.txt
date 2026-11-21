@@ -1,7 +1,7 @@
-........................................................................ [ 27%]
-........................................................................ [ 55%]
-........................................................................ [ 83%]
-............................................                             [100%]
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+......................................................................   [100%]
 ================================ tests coverage ================================
 _______________ coverage: platform linux, python 3.11.2-final-0 ________________
 
@@ -11,21 +11,25 @@ core/__init__.py                 2      0   100%
 core/bootstrap/__init__.py      25      0   100%
 core/bootstrap/binary.py        83      1    99%
 core/bootstrap/config.py       131      4    97%
-core/bootstrap/probes.py       143     25    83%
+core/bootstrap/probes.py       143      1    99%
 core/bootstrap/tunnel.py       342     33    90%
 core/demo_data.py               92      3    97%
 core/geo.py                     52      2    96%
 core/live/__init__.py           25      0   100%
 core/live/collector.py         171      6    96%
-core/live/proc.py              270     39    86%
+core/live/proc.py              270      2    99%
 core/live/sources.py           141      5    96%
-core/resources.py              103     12    88%
+core/resources.py              103      1    99%
 core/sessions.py                62      6    90%
 core/statefeed.py              138      7    95%
 ui/__init__.py                   2      0   100%
-ui/card.py                      51      0   100%
+ui/card/__init__.py              5      0   100%
+ui/card/common.py               12      0   100%
+ui/card/markup.py               27      0   100%
+ui/card/render.py               19      0   100%
+ui/card/script.py                6      0   100%
 ui/palette.py                   35      0   100%
 ui/theme.py                     19      0   100%
 ------------------------------------------------
-TOTAL                         1887    143    92%
-260 passed, 1 skipped in 4.14s
+TOTAL                         1905     71    96%
+286 passed, 1 skipped in 4.48s

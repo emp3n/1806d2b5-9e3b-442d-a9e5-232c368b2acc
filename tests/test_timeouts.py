@@ -10,7 +10,7 @@ import live
 import statefeed
 
 ROOT = Path(__file__).resolve().parents[1]
-JS = re.search(r"<script>(.*?)</script>", (ROOT / "ui" / "card.py").read_text(), re.S).group(1)
+JS = re.search(r"<script>(.*?)</script>", ("\n".join(p.read_text() for p in (ROOT / "ui" / "card").glob("*.py"))), re.S).group(1)
 
 
 def test_local_probes_are_fast_and_bounded():

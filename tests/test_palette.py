@@ -74,7 +74,7 @@ def test_static_structure_does_not_change_with_the_palette():
 
 
 def test_the_card_and_the_app_accept_a_palette():
-    card = (Path(__file__).resolve().parents[1] / "ui" / "card.py").read_text()
+    card = ("\n".join(p.read_text() for p in (Path(__file__).resolve().parents[1] / "ui" / "card").glob("*.py")))
     app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert 'palette: str = "linen"' in card
     assert 'data-palette="{palette}"' in card

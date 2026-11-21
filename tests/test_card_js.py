@@ -14,10 +14,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-CARD = Path(__file__).resolve().parents[1] / "ui" / "card.py"
+CARD = Path(__file__).resolve().parents[1] / "ui" / "card"
+CARD_SRC = "\n".join(p.read_text() for p in CARD.glob("*.py"))
 THEME = Path(__file__).resolve().parents[1] / "ui" / "theme.py"
 
-SCRIPT = re.search(r"<script>(.*?)</script>", CARD.read_text(), re.S).group(1)
+SCRIPT = re.search(r"<script>(.*?)</script>", CARD_SRC, re.S).group(1)
 
 
 def declared_functions() -> list[str]:
@@ -76,7 +77,7 @@ def test_the_hover_cursor_is_reachable_and_visible():
     """Hover must add `.on` to a dot that exists in the markup and is painted."""
     assert "spark.cursor.classList.add('on')" in SCRIPT
     assert "spark.cursor.style.left" in SCRIPT and "spark.cursor.style.top" in SCRIPT
-    assert '<i class="rd-cursor" aria-hidden="true"></i>' in CARD.read_text()
+    assert '<i class="rd-cursor" aria-hidden="true"></i>' in CARD_SRC
     css = THEME.read_text()
     assert ".rd-cursor.on { opacity: 1; }" in css
     assert ".rd-cursor" in css and "border-radius: 50%" in css
@@ -307,8 +308,8 @@ def test_a_verb_reloads_the_app_document_not_the_outer_wrapper():
 
 def test_the_card_document_is_escaped_before_it_is_interpolated():
     """Without a sandbox the interpolated values must not become markup."""
-    assert "def esc(value: object) -> str" in CARD.read_text()
-    assert "html.escape(str(value), quote=True)" in CARD.read_text()
+    assert "def esc(value: object) -> str" in CARD_SRC
+    assert "html.escape(str(value), quote=True)" in CARD_SRC
 
 
 def test_the_poll_defeats_a_heuristic_cache():
@@ -335,7 +336,7 @@ def test_the_card_only_promises_a_feed_when_one_exists():
 def test_the_verbs_are_on_the_card_where_the_design_puts_them():
     """Stop and Restart belong in the card's own header (they were there, and
     they were moved out to the page corner by mistake)."""
-    markup = CARD.read_text()
+    markup = CARD_SRC
     assert '<div class="rd-verbs">' in markup
     assert 'data-verb="power"' in markup and 'data-verb="restart"' in markup
     assert markup.count('class="rd-round"') == 2
@@ -354,7 +355,7 @@ def test_a_card_button_asks_the_app_instead_of_acting_itself():
     assert "window.parent.postMessage({{rd: verb}}, '*')" in SCRIPT
     # no second port, no action route, no key
     assert "X-RD-Action" not in SCRIPT and "/api/action" not in SCRIPT
-    assert "data-action=" not in CARD.read_text()
+    assert "data-action=" not in CARD_SRC
     # a native button callback owns the verb; no URL round trip at all
     shell = (CARD.parent.parent / "app.py").read_text()
     assert "def _run_verb(verb: str)" in shell
@@ -385,7 +386,7 @@ def test_the_card_has_no_http_action_endpoint():
     """One channel. The card asks; the app acts; the state file answers."""
     assert "act(" not in SCRIPT
     assert "method:" not in SCRIPT and "X-RD-Action" not in SCRIPT
-    assert "data-action=" not in CARD.read_text()
+    assert "data-action=" not in CARD_SRC
 
 def test_the_tunnel_hostname_reaches_the_card_as_a_string():
     """The card's own ``host`` is the machine's cores and RAM. When the render
@@ -402,5 +403,5 @@ def test_the_tunnel_hostname_reaches_the_card_as_a_string():
     assert 'var RD_BACK = "https://example.streamlit.app";' in page
     # no render parameter may collide with a name the card already declares:
     # the signature may take ``tunnel_host``, never a bare ``host``
-    assert "\n    host: str = \"\"," not in CARD.read_text()
-    assert "\n    tunnel_host: str = \"\"," in CARD.read_text()
+    assert "\n    host: str = \"\"," not in CARD_SRC
+    assert "\n    tunnel_host: str = \"\"," in CARD_SRC

@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CSS = (ROOT / "ui" / "theme.py").read_text()
-CARD = (ROOT / "ui" / "card.py").read_text()
+CARD = ("\n".join(p.read_text() for p in (ROOT / "ui" / "card").glob("*.py")))
 APP = (ROOT / "app.py").read_text()
 JS = re.search(r"<script>(.*?)</script>", CARD, re.S).group(1)
 

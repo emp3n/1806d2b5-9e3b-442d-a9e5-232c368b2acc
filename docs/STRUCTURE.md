@@ -33,8 +33,11 @@ redesign/
 │   └── demo_data.py        Воспроизводимые демо-данные (?source=sample).
 ├── ui/                     ПАКЕТ ИНТЕРФЕЙСА. Никакого сэмплирования и сети.
 │   ├── __init__.py
-│   ├── card.py             Разметка + JavaScript: paintGeo, paintConnections,
-│   │                       опрос 500 мс, verbs, fit(), sparkline, MB/GB.
+│   ├── card/               ПАКЕТ: __init__ даёт плоский API (render и хелперы)
+│   │   ├── common.py       escaping, иконки, знак Cloudflare, VIEWS
+│   │   ├── markup.py       measure, флаги, город, список эджей
+│   │   ├── script.py       весь браузерный JS + геометрия спарклайнов
+│   │   └── render.py       сборка страницы из fragments и script()
 │   ├── theme.py            ВСЁ CSS: токены + статические правила + breakpoints.
 │   └── palette.py          Три палитры, шкалы Radix, semantic_tokens(), контраст.
 ├── bootstrap.py            Совместимость: алиас на core.bootstrap (3 строки).

@@ -130,7 +130,7 @@ def test_shard_is_published_by_the_sampler_not_the_payload_builder():
 
 
 def test_disambiguate_is_never_called_from_the_browser():
-    src = (ROOT / "ui" / "card.py").read_text()
+    src = ("\n".join(p.read_text() for p in (ROOT / "ui" / "card").glob("*.py")))
     js = re.search(r"<script>(.*?)</script>", src, re.S).group(1)
     assert "disambiguate" not in js
     assert "ipwho.is" not in js
