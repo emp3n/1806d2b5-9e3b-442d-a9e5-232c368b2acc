@@ -249,6 +249,11 @@ def test_connections_chip_sits_in_the_edges_row():
     start = page.index('<div class="rd-facts">')
     facts = page[start:page.index('</div>', start)]
     assert facts.index('data-edge-list') < facts.index('data-tone="connections"')
+    # the Edges label is gone so every code + mini flag fits on one line
+    assert '<em>Edges</em>' not in facts
+    edge_chip = facts[facts.index('data-edge-list') - 40:facts.index('data-tone="connections"')]
+    assert '<span class="rd-edge-list"' in edge_chip
+    assert "set('[data-fact=\"edges\"]'" not in SCRIPT
     assert '<em>connections</em><span data-connections>5</span>' in facts
     assert 'data-tone="connections"' not in facts[:facts.index('data-tone="shard"')]
     assert '<em>connections</em><span data-connections>0</span>' in render(

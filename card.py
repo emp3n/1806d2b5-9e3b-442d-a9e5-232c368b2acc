@@ -224,7 +224,7 @@ def render(
         </span>
         <span class="rd-fact" data-tone="shard"><span data-shard>{esc(state.get("shard", ""))}</span></span>
         <span class="rd-fact">
-          <em>Edges</em><span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
+          <span class="rd-edge-list" data-edge-list>{edge_items(state.get("edges_geo", []), state["edge_names"])}</span>
         </span>
         <span class="rd-fact" data-tone="connections">
           <em>connections</em><span data-connections>{int(state.get("connections", 0) or 0)}</span>
@@ -371,7 +371,8 @@ def render(
       paintConnections({{}});
       set('[data-source]', 'live · no cloudflared process');
       set('[data-fact="origin"]', '—');
-      set('[data-fact="edges"]', '—');
+      var edgeList = document.querySelector('[data-edge-list]');
+      if (edgeList) edgeList.textContent = '—';
       set('[data-uptime]', '—');
       set('[data-version]', '—');
       set('[data-path]', '—');
@@ -811,7 +812,6 @@ def render(
         noteNode.hidden = !note;
       }}
       set('[data-fact="origin"]', data.origin);
-      set('[data-fact="edges"]', data.edges);
       paintGeo(data);
       paintConnections(data);
       set('[data-uptime]', data.uptime);
