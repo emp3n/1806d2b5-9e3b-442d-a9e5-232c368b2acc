@@ -1,0 +1,668 @@
+{
+ "amd-generic": {
+  "file": "amd-generic.png",
+  "plate": "light",
+  "source": "https://logos.fandom.com/wiki/AMD_Logo.svg"
+ },
+ "arc-badge": {
+  "file": "arc-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/84/Intel_Arc_Badge.png/revision/latest?cb=20230618181757"
+ },
+ "arc-logo": {
+  "file": "arc-logo.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/7f/Intel_Arc.svg/revision/latest?cb=20220904183630"
+ },
+ "arc-series2": {
+  "file": "arc-series2.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c6/Intel_Arc_Series_2_Badge.png/revision/latest?cb=20250805111027"
+ },
+ "athlon-1999": {
+  "file": "athlon-1999.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/5/50/AMD_Athlon_Processor_%281999%29.svg/revision/latest?cb=20210312224730"
+ },
+ "athlon-2007": {
+  "file": "athlon-2007.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/5/52/AMD_Athlon_%282007%29.svg/revision/latest?cb=20210313174746"
+ },
+ "athlon-2016": {
+  "file": "athlon-2016.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/5/5a/Amd_athlon_2016-2018.png/revision/latest?cb=20260618025526"
+ },
+ "athlon-2018": {
+  "file": "athlon-2018.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/2d/AMD_Athlon_%282018%29.svg/revision/latest?cb=20210311233149"
+ },
+ "athlon-64-2003": {
+  "file": "athlon-64-2003.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/3e/AMD_Athlon_64_%282003%29.svg/revision/latest?cb=20210309230027"
+ },
+ "athlon-64-fx-2003": {
+  "file": "athlon-64-fx-2003.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/bd/AMD_Athlon_64_FX_%282003%29.svg/revision/latest?cb=20210313123017"
+ },
+ "athlon-64-x2-2003": {
+  "file": "athlon-64-x2-2003.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8a/AMD_Athlon_64_X2_%282003%29.svg/revision/latest?cb=20210309230225"
+ },
+ "athlon-gold": {
+  "file": "athlon-gold.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/9/9c/Amd_athlon_gold.png/revision/latest?cb=20211228235801"
+ },
+ "athlon-ii-2009": {
+  "file": "athlon-ii-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e9/AMD_Athlon_II_%282009%29.svg/revision/latest?cb=20210314152800"
+ },
+ "athlon-silver": {
+  "file": "athlon-silver.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/3d/Amd_athlon_silver.jpg/revision/latest?cb=20211228235611"
+ },
+ "athlon-x2-2007": {
+  "file": "athlon-x2-2007.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/1b/AMD_Athlon_X2_%282007%29.svg/revision/latest?cb=20210313174759"
+ },
+ "athlon-xp-2001": {
+  "file": "athlon-xp-2001.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/34/AMD_Athlon_XP_Processor_%282001%29.svg/revision/latest?cb=20210312225859"
+ },
+ "atom-2000": {
+  "file": "atom-2000.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/4f/Intel-atom-logo.svg/revision/latest?cb=20170516153049"
+ },
+ "atom-badge": {
+  "file": "atom-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/24/Badge-atom.png/revision/latest?cb=20160731113413"
+ },
+ "atom-x3": {
+  "file": "atom-x3.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/a9/Badge-atom-x3.png/revision/latest?cb=20160731113413"
+ },
+ "atom-x5": {
+  "file": "atom-x5.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/79/Badge-atom-x5.png/revision/latest?cb=20160731113414"
+ },
+ "atom-x7": {
+  "file": "atom-x7.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/04/Badge-atom-x7.png/revision/latest?cb=20160731113414"
+ },
+ "celeron-1998": {
+  "file": "celeron-1998.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/ef/Intel_Celeron_%281998%29.svg/revision/latest?cb=20250805132603"
+ },
+ "celeron-2001": {
+  "file": "celeron-2001.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/9/95/Intel_celeron_2001.png/revision/latest?cb=20121102093837"
+ },
+ "celeron-2006": {
+  "file": "celeron-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/11/Intel_Celeron_%282006%29.svg/revision/latest?cb=20210723123427"
+ },
+ "celeron-2008": {
+  "file": "celeron-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/a6/Intel_Celeron_%282008%29.svg/revision/latest?cb=20251203225329"
+ },
+ "celeron-2009": {
+  "file": "celeron-2009.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/25/Intel_Celeron_2009.svg/revision/latest?cb=20200518190849"
+ },
+ "celeron-2015": {
+  "file": "celeron-2015.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8a/Intel_Celeron_2015_logo.svg/revision/latest?cb=20210323214216"
+ },
+ "celeron-2020": {
+  "file": "celeron-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/23/Intel_Celeron_2020_logo.svg/revision/latest?cb=20240222053546"
+ },
+ "celeron-badge": {
+  "file": "celeron-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e2/Badge-celeron.png/revision/latest?cb=20160731113525"
+ },
+ "celeron-d-2006": {
+  "file": "celeron-d-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/bf/Intel_Celeron_D_%282006%29.svg/revision/latest?cb=20210323162223"
+ },
+ "celeron-dual-2008": {
+  "file": "celeron-dual-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b7/Intel_Celeron_Dual-Core_%282008%29.svg/revision/latest?cb=20210323161113"
+ },
+ "celeron-m-2006": {
+  "file": "celeron-m-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/cb/Intel_Celeron_M_%282006%29.svg/revision/latest?cb=20210323162232"
+ },
+ "core-5": {
+  "file": "core-5.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/28/Intel_Core_5.svg/revision/latest?cb=20231215234551"
+ },
+ "core-evo-i7": {
+  "file": "core-evo-i7.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-family": {
+  "file": "core-family.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-i3-2008": {
+  "file": "core-i3-2008.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/4b/Intel_Core_i3_%282008%29.svg/revision/latest?cb=20210324163247"
+ },
+ "core-i3-2013": {
+  "file": "core-i3-2013.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/fb/Intel_Core_i3_Haswell.svg/revision/latest?cb=20200824155058"
+ },
+ "core-i3-2019": {
+  "file": "core-i3-2019.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e6/Intel_Core_i3_2019_logo.svg/revision/latest?cb=20220621184315"
+ },
+ "core-i3-2020": {
+  "file": "core-i3-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/88/Intel_Core_i3_2020_logo.svg/revision/latest?cb=20220620201157"
+ },
+ "core-i5": {
+  "file": "core-i5.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-i5-2008": {
+  "file": "core-i5-2008.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/0e/Intel_Core_i5_%282008%29.svg/revision/latest?cb=20210324163234"
+ },
+ "core-i5-2009": {
+  "file": "core-i5-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/3d/Intel_Core_i5_%282009-2011%29.svg/revision/latest?cb=20251102004826"
+ },
+ "core-i5-2011": {
+  "file": "core-i5-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b2/Intel_Core_i5_logo.svg/revision/latest?cb=20170516183455"
+ },
+ "core-i5-2013": {
+  "file": "core-i5-2013.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/cc/Intel_Core_i5_Haswell.svg/revision/latest?cb=20200824155234"
+ },
+ "core-i5-2014": {
+  "file": "core-i5-2014.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/0c/Intel_Core_i5_Broadwell.svg/revision/latest?cb=20200912160432"
+ },
+ "core-i5-2017": {
+  "file": "core-i5-2017.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/4e/Intel_Core_i5_8th_gen.png/revision/latest?cb=20220308134501"
+ },
+ "core-i5-2018": {
+  "file": "core-i5-2018.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/ac/Intel_Core_i5_%288th_generation%29.svg/revision/latest?cb=20260403030650"
+ },
+ "core-i5-2019": {
+  "file": "core-i5-2019.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/6/65/Intel_Core_i5_9th_Gen.png/revision/latest?cb=20220626150501"
+ },
+ "core-i5-2020": {
+  "file": "core-i5-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d0/Intel_Core_i5_2020_logo.svg/revision/latest?cb=20220620201159"
+ },
+ "core-i5-vpro-2010": {
+  "file": "core-i5-vpro-2010.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/f9/Intel_Core_i5_vPro_%282010%29.svg/revision/latest?cb=20210325234138"
+ },
+ "core-i5-x": {
+  "file": "core-i5-x.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8b/Intel_Core_i5_X-series_2017_logo.svg/revision/latest?cb=20210325163558"
+ },
+ "core-i7": {
+  "file": "core-i7.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-i7-2008": {
+  "file": "core-i7-2008.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b4/Intel_Core_i7_%282008%29.svg/revision/latest?cb=20210324162907"
+ },
+ "core-i7-2009": {
+  "file": "core-i7-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c0/Intel_Core_i7_logo_%282009%29.png/revision/latest?cb=20131211233801"
+ },
+ "core-i7-2011": {
+  "file": "core-i7-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/6/62/Intel_Core_i7_logo.svg/revision/latest?cb=20170516064841"
+ },
+ "core-i7-2013": {
+  "file": "core-i7-2013.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/fc/Intel_Core_i7_Haswell.svg/revision/latest?cb=20200824155359"
+ },
+ "core-i7-2014": {
+  "file": "core-i7-2014.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c2/Intel_Core_i7_Broadwell.svg/revision/latest?cb=20200912160516"
+ },
+ "core-i7-2015": {
+  "file": "core-i7-2015.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/01/Intel_Core_i7_%282015-2019%29.svg/revision/latest?cb=20250907165608"
+ },
+ "core-i7-2017": {
+  "file": "core-i7-2017.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/03/Intel_Core_i7_7th_gen.png/revision/latest?cb=20220308134456"
+ },
+ "core-i7-2018": {
+  "file": "core-i7-2018.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e4/Intel_Core_i7_8th_gen.png/revision/latest?cb=20220308134452"
+ },
+ "core-i7-2019": {
+  "file": "core-i7-2019.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/5/58/Intel_Core_i7_2019_logo.svg/revision/latest?cb=20220621184630"
+ },
+ "core-i7-2020": {
+  "file": "core-i7-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d2/Intel_Core_i7_2020_logo.svg/revision/latest?cb=20220620201345"
+ },
+ "core-i7-vpro-2015": {
+  "file": "core-i7-vpro-2015.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/f6/Intel_Core_i7_vPro_%282015-2019%29.svg/revision/latest?cb=20250907164337"
+ },
+ "core-i7-x": {
+  "file": "core-i7-x.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/2f/Intel_Core_i7_X-series_2017_logo.svg/revision/latest?cb=20210325163533"
+ },
+ "core-i9": {
+  "file": "core-i9.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-i9-2018": {
+  "file": "core-i9-2018.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/72/Intel_Core_i9_8th_gen.png/revision/latest?cb=20220308134453"
+ },
+ "core-i9-2019": {
+  "file": "core-i9-2019.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8a/Intel_Core_i9_9th_gen.svg/revision/latest?cb=20220308134453"
+ },
+ "core-i9-2020": {
+  "file": "core-i9-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c5/Intel_Core_i9_2020_logo.svg/revision/latest?cb=20220620201359"
+ },
+ "core-i9-x": {
+  "file": "core-i9-x.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b8/Intel_Core_i9_X-series_2017_logo.svg/revision/latest?cb=20210325163006"
+ },
+ "core-series1-5": {
+  "file": "core-series1-5.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-series1-7": {
+  "file": "core-series1-7.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-series3": {
+  "file": "core-series3.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/31/Intel_Core_Series_3.jpg/revision/latest?cb=20260928080531"
+ },
+ "core-series3-3": {
+  "file": "core-series3-3.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-series3-5": {
+  "file": "core-series3-5.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-series3-7": {
+  "file": "core-series3-7.png",
+  "origin": "Intel Badge Tool",
+  "source": "https://badgetool.portinos.com/ (S3 repointel.lar.static/images/processors/)"
+ },
+ "core-ultra-3": {
+  "file": "core-ultra-3.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/86/Intel_Core_Ultra_3.svg/revision/latest?cb=20250512045208"
+ },
+ "core-ultra-5": {
+  "file": "core-ultra-5.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/79/Intel_Core_Ultra_5.svg/revision/latest?cb=20231215234158"
+ },
+ "core-ultra-7": {
+  "file": "core-ultra-7.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/77/Intel_Core_Ultra_7.svg/revision/latest?cb=20231215234205"
+ },
+ "core-ultra-9": {
+  "file": "core-ultra-9.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/20/Intel_Core_Ultra_9.svg/revision/latest?cb=20231215234206"
+ },
+ "core-ultra-series3": {
+  "file": "core-ultra-series3.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c0/Intel_Core_Ultra_Series_3_2026_Logo.jpg/revision/latest?cb=20260106220256"
+ },
+ "core-ultra-x7": {
+  "file": "core-ultra-x7.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/37/Intel_Core_Ultra_X7_Series_3.png/revision/latest?cb=20260415115233"
+ },
+ "core-ultra-x9": {
+  "file": "core-ultra-x9.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/fd/Intel_Core_Ultra_X9_Series_3.png/revision/latest?cb=20260415114205"
+ },
+ "core-x-series": {
+  "file": "core-x-series.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/6/65/Intel_Core_X-series.svg/revision/latest?cb=20220308134458"
+ },
+ "core2-vpro-2008": {
+  "file": "core2-vpro-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/16/Intel_Core_2_vPro_%282008%29.svg/revision/latest?cb=20210324161613"
+ },
+ "core2duo-2006": {
+  "file": "core2duo-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/9/91/Intel_Core_2_Duo_%282006%29.svg/revision/latest?cb=20251102170200"
+ },
+ "core2duo-2009": {
+  "file": "core2duo-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/1c/Intel_Core_2_Duo_%282009%29.svg/revision/latest?cb=20210323134819"
+ },
+ "core2extreme-2006": {
+  "file": "core2extreme-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/44/Intel_Core_2_Extreme_%282006%29.svg/revision/latest?cb=20251102172505"
+ },
+ "core2quad-2006": {
+  "file": "core2quad-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Intel_Core_2_Quad_%282006%29.svg/revision/latest?cb=20210322215411"
+ },
+ "core2quad-2009": {
+  "file": "core2quad-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/1f/Intel_Core_2_Quad_%282009%29.svg/revision/latest?cb=20210323134842"
+ },
+ "core2solo-2006": {
+  "file": "core2solo-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/19/Intel_Core_2_Solo_%282006%29.svg/revision/latest?cb=20210727182748"
+ },
+ "epyc": {
+  "file": "epyc.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/45/1920px-AMD_Epyc_wordmark.svg.png/revision/latest?cb=20201124052047"
+ },
+ "fx-2011": {
+  "file": "fx-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/fe/AMD_FX_2011-2013.png/revision/latest?cb=20140312191428"
+ },
+ "fx-unlocked": {
+  "file": "fx-unlocked.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/4d/AMD_FX_Unlocked_%282013%29.svg/revision/latest?cb=20210312233831"
+ },
+ "generic": {
+  "file": "generic.png",
+  "origin": "local",
+  "source": "local neutral chip artwork"
+ },
+ "intel-generic": {
+  "file": "intel-generic.png",
+  "plate": "light",
+  "source": "https://logos.fandom.com/wiki/Intel_Inside_1993_Pentium.png"
+ },
+ "itanium-2-2006": {
+  "file": "itanium-2-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/dc/Intel_Itanium_2_%282006%29.svg/revision/latest?cb=20210325230308"
+ },
+ "itanium-2000": {
+  "file": "itanium-2000.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/dc/Intel_Itanium_%282000%29.svg/revision/latest?cb=20251025073442"
+ },
+ "itanium-2002": {
+  "file": "itanium-2002.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d3/Intel_Itanium_%282002%29.svg/revision/latest?cb=20251025073449"
+ },
+ "itanium-2006": {
+  "file": "itanium-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/18/Intel_Itanium_%282006%29.svg/revision/latest?cb=20210325230254"
+ },
+ "itanium-2008": {
+  "file": "itanium-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/02/Intel_Itanium_%282008%29.svg/revision/latest?cb=20210325231127"
+ },
+ "itanium-2011": {
+  "file": "itanium-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b1/Intel_Itanium_%282011%29.svg/revision/latest?cb=20210325225730"
+ },
+ "itanium-2013": {
+  "file": "itanium-2013.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/7d/Intel_Itanium_%282013%29.svg/revision/latest?cb=20210325130433"
+ },
+ "itanium-2014": {
+  "file": "itanium-2014.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/25/Intel_Itanium_%282014%29.svg/revision/latest?cb=20210325130450"
+ },
+ "itanium-badge": {
+  "file": "itanium-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/a0/Badge-itanium.png/revision/latest?cb=20160731113526"
+ },
+ "opteron-2005": {
+  "file": "opteron-2005.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b4/AMD_Opteron_64_%282005%29.svg/revision/latest?cb=20210311235641"
+ },
+ "opteron-2007": {
+  "file": "opteron-2007.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/a3/AMD_Opteron_64_%282007%29.svg/revision/latest?cb=20210313234739"
+ },
+ "opteron-2011": {
+  "file": "opteron-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d9/AMD_Opteron_Processor_%282011%29.svg/revision/latest?cb=20210313130633"
+ },
+ "opteron-2013": {
+  "file": "opteron-2013.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/3d/AMD_Opteron_%282013%29.svg/revision/latest?cb=20210314011307"
+ },
+ "pentium-2006": {
+  "file": "pentium-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8d/Intel_Pentium_%282006%29.svg/revision/latest?cb=20210324173202"
+ },
+ "pentium-2008": {
+  "file": "pentium-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/a/a1/Intel_Pentium_%282008%29.svg/revision/latest?cb=20210323160955"
+ },
+ "pentium-2009": {
+  "file": "pentium-2009.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/ca/Intel_Pentium_2009.svg/revision/latest?cb=20200518192800"
+ },
+ "pentium-4": {
+  "file": "pentium-4.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/9/9c/Pentium-4-processor-m.svg/revision/latest?cb=20200928224656"
+ },
+ "pentium-badge": {
+  "file": "pentium-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/c1/Badge-pentium.png/revision/latest?cb=20160731113526"
+ },
+ "pentium-d": {
+  "file": "pentium-d.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8a/Intel_Pentium_D_%282006%29_-_Dual-core._Do_more..svg/revision/latest?cb=20210324173451"
+ },
+ "pentium-dual-core": {
+  "file": "pentium-dual-core.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/3/3e/Intel_Pentium_Dual-Core_%282008%29.svg/revision/latest?cb=20210323161006"
+ },
+ "pentium-ii": {
+  "file": "pentium-ii.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e7/Intel_Pentium_II_Processor.svg/revision/latest?cb=20250805133030"
+ },
+ "pentium-iii": {
+  "file": "pentium-iii.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Intel_Pentium_III_Processor_Logo_Main.svg/revision/latest?cb=20220308144139"
+ },
+ "pentium-m": {
+  "file": "pentium-m.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/1/1d/Pentium_M.jpg/revision/latest?cb=20230318071118"
+ },
+ "pentium-mmx": {
+  "file": "pentium-mmx.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/f4/Intel_Pentium_MMX.png/revision/latest?cb=20160426102702"
+ },
+ "phenom-2007": {
+  "file": "phenom-2007.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/f/f0/AMD_Phenom_2007-2008.png/revision/latest?cb=20140312185835"
+ },
+ "phenom-ii-2008": {
+  "file": "phenom-ii-2008.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/03/AMD_Phenom_II_%282008%29.svg/revision/latest?cb=20210313122536"
+ },
+ "quark-badge": {
+  "file": "quark-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e1/Badge-quark.png/revision/latest?cb=20160731113527"
+ },
+ "quark-haswell": {
+  "file": "quark-haswell.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/9/9b/Intel_Quark_Haswell.svg/revision/latest?cb=20200913144437"
+ },
+ "ryzen": {
+  "file": "ryzen.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/49/AMD_Ryzen_logo.svg/revision/latest?cb=20211212211603"
+ },
+ "ryzen-stylized": {
+  "file": "ryzen-stylized.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/8b/AMD_ryzen_stylized.svg/revision/latest?cb=20190310223134"
+ },
+ "sempron-2003": {
+  "file": "sempron-2003.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/22/AMD_Sempron_%282003%29.svg/revision/latest?cb=20210311115350"
+ },
+ "sempron-2007": {
+  "file": "sempron-2007.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/dc/AMD_Sempron_%282007%29.svg/revision/latest?cb=20210313144449"
+ },
+ "sempron-2013": {
+  "file": "sempron-2013.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b7/AMD_Sempron_%282013%29.svg/revision/latest?cb=20210311231951"
+ },
+ "threadripper": {
+  "file": "threadripper.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e7/AMD-threadripper-logo.png/revision/latest?cb=20211228034217"
+ },
+ "threadripper-wordmark": {
+  "file": "threadripper-wordmark.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d8/AMD_Threadripper_wordmark.svg/revision/latest?cb=20260912050102"
+ },
+ "turion-2005": {
+  "file": "turion-2005.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/0/07/AMD_Turion_64_Mobile_Technology_%282005%29.svg/revision/latest?cb=20210309232318"
+ },
+ "xeon-2000": {
+  "file": "xeon-2000.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/86/Intel_Xeon_%282000%29.svg/revision/latest?cb=20251013172754"
+ },
+ "xeon-2002": {
+  "file": "xeon-2002.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Intel_Xeon_%282002%29.svg/revision/latest?cb=20251013172910"
+ },
+ "xeon-2005": {
+  "file": "xeon-2005.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/b/b0/Intel_Xeon_2005.jpg/revision/latest?cb=20200326213615"
+ },
+ "xeon-2006": {
+  "file": "xeon-2006.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/c/ce/Intel_Xeon_%282006%29.svg/revision/latest?cb=20210324214054"
+ },
+ "xeon-2008": {
+  "file": "xeon-2008.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/77/Intel_Xeon_%282008%29.svg/revision/latest?cb=20250907153353"
+ },
+ "xeon-2009": {
+  "file": "xeon-2009.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/7d/Intel_Xeon_%282009%29.svg/revision/latest?cb=20250907145222"
+ },
+ "xeon-2011": {
+  "file": "xeon-2011.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/7d/Intel_Xeon_logo_%282011%29.svg/revision/latest?cb=20131211174324"
+ },
+ "xeon-2015": {
+  "file": "xeon-2015.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/e/e0/Intel_Xeon_2015_logo.svg/revision/latest?cb=20210323165550"
+ },
+ "xeon-2020": {
+  "file": "xeon-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/8/83/Intel_Xeon_2020_logo.svg/revision/latest?cb=20220620200450"
+ },
+ "xeon-2024": {
+  "file": "xeon-2024.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/d/d4/Intel_Xeon_2024_logo.jpg/revision/latest?cb=20240628122602"
+ },
+ "xeon-badge": {
+  "file": "xeon-badge.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/7/7a/Badge-xeon.png/revision/latest?cb=20160731113527"
+ },
+ "xeon-bronze": {
+  "file": "xeon-bronze.png",
+  "origin": "Wikimedia Commons",
+  "source": "https://commons.wikimedia.org/wiki/File:Intel-Xeon-bronze-Badge-2020.png"
+ },
+ "xeon-gold": {
+  "file": "xeon-gold.png",
+  "origin": "Wikimedia Commons",
+  "source": "https://commons.wikimedia.org/wiki/File:Intel-Xeon-gold-Badge-2020.png"
+ },
+ "xeon-gold-2020": {
+  "file": "xeon-gold-2020.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/45/Intel_Xeon_Gold_2020_logo.svg/revision/latest?cb=20210327162158"
+ },
+ "xeon-max": {
+  "file": "xeon-max.png",
+  "plate": "light",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/4/41/Xeon-q1-2023-xeon-cpu-max-series-badge.png.rendition.intel.web.480.270.png/revision/latest?cb=20230111003407"
+ },
+ "xeon-phi": {
+  "file": "xeon-phi.png",
+  "source": "https://static.wikia.nocookie.net/logopedia/images/2/23/Badge-xeon-phi.png/revision/latest?cb=20160731113609"
+ },
+ "xeon-platinum": {
+  "file": "xeon-platinum.png",
+  "origin": "Wikimedia Commons",
+  "source": "https://commons.wikimedia.org/wiki/File:Intel-Xeon-platinum-Badge-2020.png"
+ },
+ "xeon-silver": {
+  "file": "xeon-silver.png",
+  "origin": "Wikimedia Commons",
+  "source": "https://commons.wikimedia.org/wiki/File:Intel-Xeon-silver-Badge-2020.png"
+ }
+}

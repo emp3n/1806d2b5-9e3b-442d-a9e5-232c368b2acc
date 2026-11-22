@@ -1,0 +1,64 @@
+# Python bytecode, caches and test/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Runtime state and secrets
+_decrypted_app.py
+.temp/
+core/.temp/
+static/state.json
+static/state.json.new
+.streamlit/secrets.toml
+cf-token
+.env
+.env.*
+!.env.example
+
+# Local-only documentation, agent instructions and tooling (never published)
+docs/
+AGENTS.md
+.uimix/
+.cursor/
+.opencode/
+CLAUDE.md
+.local/
+
+# Tests and operator tools are local only: they verify and control the code
+# here and are never published. The deployment carries only the encrypted
+# runtime modules and the key gate.
+tests/
+conftest.py
+pytest.ini
+tools/
+
+# One-off probe leftovers
+a19_redeploy_probe_*.txt
+REDEPLOY-PROBE.md
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

@@ -1,0 +1,8 @@
+*.py filter=pycrypt
+main.py -filter
+mcp_exec.py -filter
+_decrypt.py -filter
+
+# Only the three key-gate files above ship as plaintext. Tests and operator
+# tools are gitignored and not published at all; every other .py is encrypted
+# by this filter, with smudge keeping the local checkout readable.
