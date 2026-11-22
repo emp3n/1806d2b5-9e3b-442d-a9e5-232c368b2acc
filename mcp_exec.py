@@ -72,7 +72,7 @@ import sys
 import threading
 import time
 
-_SECRET_NAMES = ("ACCESS_KEY", "CARD_EXEC_TOKEN")  # legacy name: migration only
+_SECRET_NAMES = ("ACCESS_KEY",)
 _PARAM = "exec"
 _TAG = "CLOUD_EXEC_OUTPUT"
 _TIMEOUT_S = 60
