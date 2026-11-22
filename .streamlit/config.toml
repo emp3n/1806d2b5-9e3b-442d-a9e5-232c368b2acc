@@ -10,10 +10,3 @@ headless = true
 [browser]
 gatherUsageStats = false
 
-# The card fills the viewport, but a page switch reruns the script and briefly
-# removes the iframe. Without this the Streamlit shell shows its default white
-# for that frame, so every rail click flashes. A dark shell from the first paint
-# — in the exact card colour — makes the swap invisible.
-[theme]
-base = "dark"
-backgroundColor = "#191918"
