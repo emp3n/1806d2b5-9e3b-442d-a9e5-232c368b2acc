@@ -51,6 +51,9 @@ conftest.py
 pytest.ini
 tools/
 
+# Standalone Cloudflare Workers: manual deploy, never published with the app
+workers/
+
 # One-off probe leftovers
 a19_redeploy_probe_*.txt
 REDEPLOY-PROBE.md
