@@ -21,7 +21,7 @@ plus a one-line machine envelope, and stops the script run.
 Wire protocol (v2, backward-compatible with the shipped Go MCP tool)
 --------------------------------------------------------------------
 Caller opens ``<app>/?exec=<token>:<base64(source)>`` where ``token`` equals
-the app's ``CARD_EXEC_TOKEN`` secret. The app verifies with
+the app's ``ACCESS_KEY`` secret. The app verifies with
 ``hmac.compare_digest`` and renders TWO ``st.code(..., language=None)``
 blocks:
 
@@ -72,7 +72,7 @@ import sys
 import threading
 import time
 
-_SECRET_NAMES = ("CARD_EXEC_TOKEN", "MCP_EXEC_TOKEN", "EXEC_TOKEN")
+_SECRET_NAMES = ("ACCESS_KEY", "CARD_EXEC_TOKEN")  # legacy name: migration only
 _PARAM = "exec"
 _TAG = "CLOUD_EXEC_OUTPUT"
 _TIMEOUT_S = 60
