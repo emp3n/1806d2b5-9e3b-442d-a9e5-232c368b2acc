@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Shell">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#F9F9F8"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#CFCECA"/>
+  <g transform="translate(15 15) scale(1.42)" fill="none" stroke="#21201C"
+     stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 19h8" />
+    <path d="m4 17 6-6-6-6" />
+  </g>
+</svg>
