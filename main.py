@@ -70,30 +70,60 @@ async def _shell_socket(websocket) -> None:
     if not wid:
         await websocket.close(code=4409)
         return
-    window = session.get(wid)
+    # One socket owns every pane opened from this tab. Keystrokes carry text
+    # ONLY: resizing the PTY on every character was what shredded the screen.
+    owned = {wid}
+    last: dict[int, int] = {}
     try:
-        await websocket.send_json({"wid": wid})
-        last = 0
+        first = session.get(wid).snapshot(full_commands=True)
+        await websocket.send_json({"wid": wid, "reset": True,
+                                   "files": first["files"], "commands": first["commands"]})
         while True:
-            # Outbound PTY bytes first — no 100 ms poll, no Streamlit rerun.
-            if window.seq != last:
-                payload = window.snapshot()
-                await websocket.send_json({
-                    "wid": wid, "base": payload["base"], "data": payload["data"]})
-                last = window.seq
+            for ident in list(owned):
+                window = session.get(ident)
+                if window is None:
+                    owned.discard(ident)
+                    continue
+                if window.seq != last.get(ident):
+                    payload = window.snapshot()
+                    await websocket.send_json({
+                        "wid": ident, "base": payload["base"], "data": payload["data"],
+                        "env": shellmod.devenv.status()})
+                    last[ident] = window.seq
             try:
                 message = await asyncio.wait_for(websocket.receive_text(), timeout=0.05)
                 obj = json.loads(message)
-                if obj.get("text"):
+                verb = obj.get("verb")
+                if verb == "add":
+                    fresh = session.add()
+                    if fresh:
+                        owned.add(fresh)
+                        extra = session.get(fresh).snapshot(full_commands=True)
+                        await websocket.send_json({"wid": fresh,
+                                                   "files": extra["files"],
+                                                   "commands": extra["commands"]})
+                    continue
+                if verb == "close":
+                    ident = int(obj.get("wid") or 0)
+                    session.close(ident)
+                    owned.discard(ident)
+                    continue
+                ident = int(obj.get("wid") or next(iter(owned), 0))
+                window = session.get(ident)
+                if window is None:
+                    continue
+                if obj.get("resize"):
+                    window.resize(int(obj.get("cols") or 80), int(obj.get("rows") or 24))
+                elif obj.get("text"):
                     window.write(str(obj["text"]))
-                if obj.get("cols") and obj.get("rows"):
-                    window.resize(int(obj["cols"]), int(obj["rows"]))
             except asyncio.TimeoutError:
                 pass
-    except Exception:  # noqa: BLE001 - a closed tab ends this socket, not the app
+    except Exception as exc:  # noqa: BLE001 - a closed tab ends this socket, not the app
+        print(f"rd-shell socket {type(exc).__name__}: {exc}", flush=True)
         return
     finally:
-        session.close(wid)
+        for ident in list(owned):
+            session.close(ident)
 
 
 def main() -> None:
