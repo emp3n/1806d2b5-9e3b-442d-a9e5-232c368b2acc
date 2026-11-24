@@ -28,6 +28,8 @@ _decrypted_app.py
 core/.temp/
 static/state.json
 static/state.json.new
+static/shell-*.json
+static/shell-*.new
 .streamlit/secrets.toml
 cf-token
 .env
