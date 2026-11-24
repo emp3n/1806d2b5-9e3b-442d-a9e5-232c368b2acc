@@ -11,6 +11,7 @@ from _decrypt import APP_DIR, install_hook, source_text
 install_hook()
 
 import asyncio
+import json
 import os
 
 import streamlit as st
@@ -24,6 +25,9 @@ SHIM = APP_DIR / "_decrypted_app.py"
 # `python main.py`. Community Cloud launches its own server and never reaches
 # this branch, so the browser falls back to the same-origin static feed there.
 WS_PATH = "/rd-state"
+# Self-hosted only: a raw PTY socket. Community Cloud cannot mount custom
+# routes, where the card falls back to Enter + rerun and streams via the feed.
+SHELL_WS_PATH = "/rd-shell"
 
 
 async def _state_socket(websocket) -> None:
@@ -52,6 +56,46 @@ async def _state_socket(websocket) -> None:
         return
 
 
+async def _shell_socket(websocket) -> None:
+    """Raw stdin/stdout for the Shell page; the signed cookie is the only key."""
+    from core import access, shell as shellmod
+
+    await websocket.accept()
+    token = websocket.query_params.get("access", "")
+    if not access.verify_cookie(token):
+        await websocket.close(code=4401)
+        return
+    session = shellmod.manager().session(token)
+    wid = session.add()
+    if not wid:
+        await websocket.close(code=4409)
+        return
+    window = session.get(wid)
+    try:
+        await websocket.send_json({"wid": wid})
+        last = 0
+        while True:
+            # Outbound PTY bytes first — no 100 ms poll, no Streamlit rerun.
+            if window.seq != last:
+                payload = window.snapshot()
+                await websocket.send_json({
+                    "wid": wid, "base": payload["base"], "data": payload["data"]})
+                last = window.seq
+            try:
+                message = await asyncio.wait_for(websocket.receive_text(), timeout=0.05)
+                obj = json.loads(message)
+                if obj.get("text"):
+                    window.write(str(obj["text"]))
+                if obj.get("cols") and obj.get("rows"):
+                    window.resize(int(obj["cols"]), int(obj["rows"]))
+            except asyncio.TimeoutError:
+                pass
+    except Exception:  # noqa: BLE001 - a closed tab ends this socket, not the app
+        return
+    finally:
+        session.close(wid)
+
+
 def main() -> None:
     if runtime.exists():
         namespace = {"__name__": "__main__", "__file__": str(APP_SOURCE), "__package__": ""}
@@ -62,10 +106,13 @@ def main() -> None:
     # app.py reads this to tell the card which socket to open; on Cloud it is
     # never set and the card keeps polling the one same-origin feed.
     os.environ["CARD_WS_PATH"] = WS_PATH
+    os.environ["CARD_SHELL_WS_PATH"] = SHELL_WS_PATH
     try:
-        st.App(str(SHIM), routes=[WebSocketRoute(WS_PATH, _state_socket)]).run()
+        st.App(str(SHIM), routes=[WebSocketRoute(WS_PATH, _state_socket),
+                                  WebSocketRoute(SHELL_WS_PATH, _shell_socket)]).run()
     finally:
         os.environ.pop("CARD_WS_PATH", None)
+        os.environ.pop("CARD_SHELL_WS_PATH", None)
         SHIM.unlink(missing_ok=True)
 
 
