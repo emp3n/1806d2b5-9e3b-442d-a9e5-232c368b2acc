@@ -79,7 +79,7 @@ async def _shell_socket(websocket) -> None:
         await websocket.send_json({"wid": wid, "reset": True,
                                    "files": first["files"], "commands": first["commands"],
                                    "cwd": first["cwd"], "paths": first["paths"],
-                                   "home": first["home"]})
+                                   "dirs": first["dirs"], "home": first["home"]})
         while True:
             for ident in list(owned):
                 window = session.get(ident)
@@ -91,7 +91,8 @@ async def _shell_socket(websocket) -> None:
                     await websocket.send_json({
                         "wid": ident, "base": payload["base"], "data": payload["data"],
                         "cwd": payload["cwd"], "files": payload["files"],
-                        "paths": payload["paths"], "home": payload["home"],
+                        "paths": payload["paths"], "dirs": payload["dirs"],
+                        "home": payload["home"],
                         "env": shellmod.devenv.status()})
                     last[ident] = window.seq
             try:
