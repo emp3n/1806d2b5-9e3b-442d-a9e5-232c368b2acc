@@ -74,6 +74,7 @@ async def _shell_socket(websocket) -> None:
     # ONLY: resizing the PTY on every character was what shredded the screen.
     owned = {wid}
     last: dict[int, int] = {}
+    reported_closed: set[int] = set()
     try:
         first = session.get(wid).snapshot(full_commands=True)
         await websocket.send_json({"wid": wid, "reset": True,
@@ -86,13 +87,18 @@ async def _shell_socket(websocket) -> None:
                 if window is None:
                     owned.discard(ident)
                     continue
+                if window.exited.is_set() and ident not in reported_closed:
+                    reported_closed.add(ident)
+                    await websocket.send_json({
+                        "wid": ident, "closed": True, "code": window.exit_code})
                 if window.seq != last.get(ident):
                     payload = window.snapshot()
                     await websocket.send_json({
                         "wid": ident, "base": payload["base"], "data": payload["data"],
                         "cwd": payload["cwd"], "files": payload["files"],
                         "paths": payload["paths"], "dirs": payload["dirs"],
-                        "home": payload["home"],
+                        "home": payload["home"], "status": payload["status"],
+                        "exit_code": payload["exit_code"],
                         "env": shellmod.devenv.status()})
                     last[ident] = window.seq
             try:
@@ -112,6 +118,8 @@ async def _shell_socket(websocket) -> None:
                     ident = int(obj.get("wid") or 0)
                     session.close(ident)
                     owned.discard(ident)
+                    reported_closed.add(ident)
+                    await websocket.send_json({"wid": ident, "closed": True})
                     continue
                 ident = int(obj.get("wid") or next(iter(owned), 0))
                 window = session.get(ident)
