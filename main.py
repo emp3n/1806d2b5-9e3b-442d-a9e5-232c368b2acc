@@ -30,12 +30,26 @@ WS_PATH = "/rd-state"
 SHELL_WS_PATH = "/rd-shell"
 
 
+async def _socket_token(websocket) -> str:
+    """Read the signed token from the FIRST frame, never from the URL.
+
+    Query strings are logged by proxies and shown in DevTools. The client
+    sends one JSON hello immediately after opening; that is the only place the
+    credential appears on a self-hosted socket.
+    """
+    try:
+        hello = json.loads(await asyncio.wait_for(websocket.receive_text(), timeout=5))
+        return str(hello.get("access") or "") if isinstance(hello, dict) else ""
+    except Exception:  # noqa: BLE001 - malformed hello is just an unauthorized socket
+        return ""
+
+
 async def _state_socket(websocket) -> None:
     """Push the sealed snapshot over one WebSocket; verify the gate token first."""
     from core import access, statefeed
 
     await websocket.accept()
-    token = websocket.query_params.get("access", "")
+    token = await _socket_token(websocket)
     if not access.verify_cookie(token):
         await websocket.close(code=4401)
         return
@@ -61,7 +75,7 @@ async def _shell_socket(websocket) -> None:
     from core import access, shell as shellmod
 
     await websocket.accept()
-    token = websocket.query_params.get("access", "")
+    token = await _socket_token(websocket)
     if not access.verify_cookie(token):
         await websocket.close(code=4401)
         return
