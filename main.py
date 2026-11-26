@@ -80,21 +80,38 @@ async def _shell_socket(websocket) -> None:
         await websocket.close(code=4401)
         return
     session = shellmod.manager().session(token)
-    wid = session.add()
-    if not wid:
-        await websocket.close(code=4409)
-        return
+    live = session.live()
+    created = not live
+    if created:
+        wid = session.add()
+        if not wid:
+            await websocket.close(code=4409)
+            return
+        owned = {wid}
+        retiring = {wid}   # this socket made it; it may retire it on exit
+    else:
+        wid = session.attach()
+        owned = {w.wid for w in live}
+        retiring = set()   # adopted panes belong to the room, not this socket
     # One socket owns every pane opened from this tab. Keystrokes carry text
     # ONLY: resizing the PTY on every character was what shredded the screen.
-    owned = {wid}
     last: dict[int, int] = {}
     reported_closed: set[int] = set()
     try:
         first = session.get(wid).snapshot(full_commands=True)
-        await websocket.send_json({"wid": wid, "reset": True,
+        # `reset` is true only when this socket genuinely created the pane. On
+        # re-entry the browser adopts the existing terminal instead of wiping
+        # it and spawning a new one.
+        await websocket.send_json({"wid": wid, "reset": created,
                                    "files": first["files"], "commands": first["commands"],
                                    "cwd": first["cwd"], "paths": first["paths"],
                                    "dirs": first["dirs"], "home": first["home"]})
+        for other in (w for w in live if w.wid != wid):
+            snap = other.snapshot(full_commands=True)
+            await websocket.send_json({"wid": other.wid, "open": True,
+                                       "files": snap["files"], "commands": snap["commands"],
+                                       "cwd": snap["cwd"], "paths": snap["paths"],
+                                       "dirs": snap["dirs"], "home": snap["home"]})
         while True:
             for ident in list(owned):
                 window = session.get(ident)
@@ -123,6 +140,7 @@ async def _shell_socket(websocket) -> None:
                     fresh = session.add()
                     if fresh:
                         owned.add(fresh)
+                        retiring.add(fresh)
                         extra = session.get(fresh).snapshot(full_commands=True)
                         await websocket.send_json({"wid": fresh,
                                                    "files": extra["files"],
@@ -149,7 +167,9 @@ async def _shell_socket(websocket) -> None:
         print(f"rd-shell socket {type(exc).__name__}: {exc}", flush=True)
         return
     finally:
-        for ident in list(owned):
+        # Only panes this socket created are retired. A reconnect adopts the
+        # room's live terminals and must never kill them on close.
+        for ident in list(retiring):
             session.close(ident)
 
 
